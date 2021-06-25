@@ -241,6 +241,91 @@ Fig: Shows executing ./a.out, dumping the VCD file and showing the output wavefo
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## 5. Day 3:
+
+In Digital logic we know there are two types of logic namely combinational and sequential. We need to optimise the logic since we want to obtain the best design in terms of area and power savings. There are a variety of basic and sophisticated optimization techniques available, but we'll focus on constant propagation (which is a direct optimization technique) and boolean logic optimization here. 
+
+### Constant Propagation
+
+This is an optimization of sequential logic. A boolean expression can be reduced to a simpler expression for some particular input values. 
+#### Combinational Constant Propagation
+
+> For an example, there are two input of an AND gate A , B and output of AND feeds into input of NOR, where C is the other input and the output is fetched from the NOR gate. Implimenting this design in CMOS technology requires total of 6 MOS transistors.
+
+```verilog
+The boolean expression of the above example can be reduced by using some constant propagation 
+
+y = ~((A*B)+C)
+if A = 0
+Y=~((0)+C) => Y = ~C
+
+```
+> So for A = 0 this can be reduced to a single inverter for a total of 2 MOS transistors.    
+
+#### Sequential Constant Propagation
+
+> Consider a D flip-flop with a reset line connected to it and its input tied low. Is there any possiability that the Q bocome 1? The ans is no 
+> But every flop with D tied off is not a sequential constant, for the flop to become sequential constant, the q pin must always take constant value.
+```  
+Note: 
+	- If it is a reset flop, having D tied off, the it's sequential constant.
+	- If it is a set flop, it's not sequential constant, q can be either 0 or 1
+	  depending on set or clk pins.
+
+```
+
+### Boolean Logic Optimization
+
+K-maps and Quine McKluskey are two techniques that may be used to do this task, and information about both can be obtained online. 
+> For an example, We'll look at a few modules from the lab to demonstrate the optimizations. 
+> The structure of the file opt check.v is as follows: 
+
+```verilog
+module opt_check (input a , input b , output y);
+assign y = a?b:0;
+endmodule
+
+```
+> It is basically a 2:1 mux representation , when a is 1, it will assign b - else it will assign 0.
+```
+Commands we use:
+
+yosys> read_liberty -lib ../my_lib/lib/sky130_fd_sc_hd__tt_025C_1v80.lib
+yosys> read_verilog opt_check.v
+yosys> synth -top opt_check
+yosys> opt_clean -purge // command to perform constant propagation and optimization
+yosys> abc -liberty ../my_lib/lib/sky130_fd_sc_hd__tt_025C_1v80.lib
+yosys> show
+```
+
+
+
+
+
+
+
+
+
+
+
+
 ## ACKNOWLEDGEMENT
 ## REFERENCES
   
