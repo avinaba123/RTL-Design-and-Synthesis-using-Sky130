@@ -249,7 +249,7 @@ Fig: Shows executing ./a.out, dumping the VCD file and showing the output wavefo
 
 
 
-
+## 3. Day 2 :
 
 
 
@@ -260,7 +260,7 @@ Fig: Shows executing ./a.out, dumping the VCD file and showing the output wavefo
 
 ## 5. Day 3:
 
-In Digital logic we know there are two types of logic namely combinational and sequential. We need to optimise the logic since we want to obtain the best design in terms of area and power savings. There are a variety of basic and sophisticated optimization techniques available, but we'll focus on constant propagation (which is a direct optimization technique) and boolean logic optimization here. 
+In Digital logic we know there are two types of logic namely combinational and sequential. We need to optimise the logic since we want to obtain the best design in terms of area and power savings. There are a variety of basic and sophisticated optimization techniques (State Optimization, Cloaning Optimization, Retiming Optimization etc.) available, but we'll focus on constant propagation (which is a direct optimization technique) and boolean logic optimization here. 
 
 ### Constant Propagation
 
@@ -281,7 +281,7 @@ Y=~((0)+C) => Y = ~C
 
 #### Sequential Constant Propagation
 
-> Consider a D flip-flop with a reset line connected to it and its input tied low. Is there any possiability that the Q bocome 1? The ans is no 
+> Consider a D flip-flop with a reset line connected to it and its input tied low. Is there any possiability that the Q bocome 1? The ans is no (Wheather we apply Reset of clk the Q is always 0
 > But every flop with D tied off is not a sequential constant, for the flop to become sequential constant, the q pin must always take constant value.
 ```  
 Note: 
@@ -303,25 +303,373 @@ assign y = a?b:0;
 endmodule
 
 ```
+
+
+
+## Combinational Logic Optimization Lab :
+
+Here, we will take a look at a few RTL modules from the lab to show the optimizations. For the first excercise we will consider opt_check module.
+
+```verilog
+module opt_check (input a , input b , output y);
+	assign y = a?b:0;
+endmodule
+```
+
 > It is basically a 2:1 mux representation , when a is 1, it will assign b - else it will assign 0.
 ```
-Commands we use:
+Commands we use for Synthesis:
 
 yosys> read_liberty -lib ../my_lib/lib/sky130_fd_sc_hd__tt_025C_1v80.lib
 yosys> read_verilog opt_check.v
 yosys> synth -top opt_check
-yosys> opt_clean -purge // command to perform constant propagation and optimization
+yosys> opt_clean -purge        // command to perform constant propagation and optimization
+yosys> abc -liberty ../my_lib/lib/sky130_fd_sc_hd__tt_025C_1v80.lib
+yosys> show
+```
+### How it looks after Synthesis
+
+![image](https://user-images.githubusercontent.com/61839839/123464927-13329b00-d60b-11eb-8fdd-6d3df679cec0.png)
+
+So after the synthesis as we expected here we can see a simple AND gate replacing the 2:1 Mux.
+
+```
+As y = a'.b + a
+     = a + b    // Which is a simple AND gate representation
+```
+For the **second** experiment now we will consider the opt_check3 module. opt_check3 works by assigning y depending on the value of a, if a is 0 then assign 0 and if a is one then look at c. Similarly if c is 1, assign b else assign 0.  As shown in the figure bellow :
+
+![image](https://user-images.githubusercontent.com/61839839/123470820-8b508f00-d612-11eb-81a0-475d68e40e57.png)
+
+```verilog
+module opt_check3 (input a , input b, input c , output y);
+	assign y = a?(c?b:0):0;
+endmodule
+```
+### How it looks after Synthesis
+
+![image](https://user-images.githubusercontent.com/61839839/123470774-7bd14600-d612-11eb-8952-be154fab7cc9.png)
+
+
+```
+Commands we use for Synthesis:
+
+yosys> read_liberty -lib ../my_lib/lib/sky130_fd_sc_hd__tt_025C_1v80.lib
+yosys> read_verilog opt_check3.v
+yosys> synth -top opt_check3
+yosys> opt_clean -purge        // command to perform constant propagation and optimization
 yosys> abc -liberty ../my_lib/lib/sky130_fd_sc_hd__tt_025C_1v80.lib
 yosys> show
 ```
 
+So after the synthesis as we expected here we can see a simple AND gate replacing the 2:1 Mux.
+
+```
+As y = a'.0 + a.[c'.0 +c.b]
+     = 0 + a.b.c
+     = a.b.c   // This is a simple 3 input AND gate 
+```
+
+For the **third** experiment we will consider the opt_check4 module. This is also a Mux based design as given in the figure:
+
+![image](https://user-images.githubusercontent.com/61839839/123471218-129e0280-d613-11eb-958d-36c8bda1e56f.png)
+
+```verilog
+module opt_check4 (input a , input b , input c , output y);
+ assign y = a?(b?(a & c ):c):(!c);
+ endmodule
+
+```
+### How it looks after Synthesis
+
+![image](https://user-images.githubusercontent.com/61839839/123471467-732d3f80-d613-11eb-9943-7b1ce6ad43ce.png)
+
+```
+Commands we use for Synthesis:
+
+yosys> read_liberty -lib ../my_lib/lib/sky130_fd_sc_hd__tt_025C_1v80.lib
+yosys> read_verilog opt_check4.v
+yosys> synth -top opt_check4
+yosys> opt_clean -purge        // command to perform constant propagation and optimization
+yosys> abc -liberty ../my_lib/lib/sky130_fd_sc_hd__tt_025C_1v80.lib
+yosys> show
+```
+After the synthesis asper our expectation here we can see a simple XNOR gate replacing the Mux based design.
+
+```
+As y = [a.b.c + b'.c].a + a'c
+     = a.b.c + a.b'.c
+     = a.c (b + b')
+     =a.c + a'.c'         // Simple 2 input XNOR gate
+```
+
+For the **fourth** and **fifth** experiment we will consider the multiple_modules and multiple_modules_2 designs, respectively.
+In this case as this design consists of several submodules, we have to flatten the design before constant propagation and optimization.
+
+```
+Commands we use for Synthesis:
+
+yosys> read_liberty -lib ../my_lib/lib/sky130_fd_sc_hd__tt_025C_1v80.lib
+yosys> read_verilog multiple_modules.v
+yosys> synth -top multiple_modules
+yosys> flatten                  // to flatten the design
+yosys> opt_clean -purge        // command to perform constant propagation and optimization
+yosys> abc -liberty ../my_lib/lib/sky130_fd_sc_hd__tt_025C_1v80.lib
+yosys> show
+```
+
+Verilog file for the multiple_modules design is
+
+```verilog
+module sub_module1(input a , input b , output y);
+ assign y = a & b;
+endmodule
+
+
+module sub_module2(input a , input b , output y);
+ assign y = a^b;
+endmodule
+
+
+module multiple_module_opt(input a , input b , input c , input d , output y);
+wire n1,n2,n3;
+
+sub_module1 U1 (.a(a) , .b(1'b1) , .y(n1));
+sub_module2 U2 (.a(n1), .b(1'b0) , .y(n2));
+sub_module2 U3 (.a(b), .b(d) , .y(n3));
+
+assign y = c | (b & n1); 
+
+
+endmodule
+```
+### How it looks after Synthesis
+
+According to our expectation Yosys done a great job and synthesized it optimally using a21o_1 module, as shown in the figure:
+
+![image](https://user-images.githubusercontent.com/61839839/123473850-c6ed5800-d616-11eb-8d7b-ea9dea6e9fe9.png)
+
+
+Verilog file for the multiple_modules_2 design is
+
+```verilog
+module sub_module(input a , input b , output y);
+ assign y = a & b;
+endmodule
 
 
 
+module multiple_module_opt2(input a , input b , input c , input d , output y);
+wire n1,n2,n3;
+
+sub_module U1 (.a(a) , .b(1'b0) , .y(n1));
+sub_module U2 (.a(b), .b(c) , .y(n2));
+sub_module U3 (.a(n2), .b(d) , .y(n3));
+sub_module U4 (.a(n3), .b(n1) , .y(y));
 
 
+endmodule
+
+```
+### How it looks after Synthesis
+
+According to our expectation Yosys done a great job and synthesized it optimally, as shown in the figure:
+
+![image](https://user-images.githubusercontent.com/61839839/123474743-0b2d2800-d618-11eb-8eae-3ba744df54e4.png)
+
+## Sequential Logic Optimization Lab :
+
+For the **first** Lab on Sequential Logic Optimization we will consider dff_const1.v file. The circuit diagram representation of the verilog module is given bellow :
+
+![image](https://user-images.githubusercontent.com/61839839/123476658-a3c4a780-d61a-11eb-8348-f73eb69a2f3d.png)
+
+```verilog
+module dff_const1(input clk, input reset, output reg q);
+always @(posedge clk, posedge reset)
+begin
+	if(reset)
+		q <= 1'b0;
+	else
+		q <= 1'b1;
+end
+
+endmodule
+```
+### Fig: Waveform after Simulating the dff_const1.v using iverilog 
+
+![image](https://user-images.githubusercontent.com/61839839/123478253-d079be80-d61c-11eb-912e-35776fac7e77.png)
 
 
+Since Reset is applied like this, Q will be alwas zero untill the reset goes low. But it does not mean that after the removing the reset the Q will be high immediately, it is going to wait for the next rising edge of the clock to become high (as shown in the figure above). So it's not a simple inverter (Q = Reset, is not true, in one time period the nature will be different as shown in the fig.)
+
+### How it looks after Synthesis
+
+```
+Commands we use for Synthesis:
+
+yosys> read_liberty -lib ../my_lib/lib/sky130_fd_sc_hd__tt_025C_1v80.lib
+yosys> read_verilog dff_const1.v
+yosys> synth -top dff_const1
+yosys> dfflibmap -liberty ../my_lib/lib/sky130_fd_sc_hd__tt_025C_1v80.lib     //dfflibmap is the switch, which is telling the sinthesizer for sequaltial circuits (mainly for dff and latches) what libreary does to pick
+yosys> abc -liberty ../my_lib/lib/sky130_fd_sc_hd__tt_025C_1v80.lib
+yosys> show
+```
+![image](https://user-images.githubusercontent.com/61839839/123479306-5ba78400-d61e-11eb-85e4-d1a7b1b937f8.png)
+
+So here is a flop which has D, Reset and Clk pin. But this standard cell libreary is expecting to have active low reset, but we have codded it active high insted of that. Thats why the synthesizer infering a inverter in the reset path. 
+
+> Note :In case you seeing the statistics it has infered an dff for dff_const1
+
+
+In the **second** lab we will be working on dff_const2.v file. The circuit diagram representation of the verilog module is given bellow :
+
+![image](https://user-images.githubusercontent.com/61839839/123479955-467f2500-d61f-11eb-90f9-4a6e2e8a6804.png)
+
+```verilog
+module dff_const2(input clk, input reset, output reg q);
+always @(posedge clk, posedge reset)
+begin
+	if(reset)
+		q <= 1'b1;
+	else
+		q <= 1'b1;
+end
+
+endmodule
+```
+
+### Fig: Waveform after Simulating the dff_const2.v using iverilog 
+
+![image](https://user-images.githubusercontent.com/61839839/123480157-8e9e4780-d61f-11eb-9549-bffb946f70f8.png)
+
+Here we have a flop which is getting a set and D is tied to logic high. Now if there is a reset, here the reset pin is working as set (as mentioned in the verilog file). So according to the waveform the Q is high when the reset is high and even if at the edge of the clock it continous to be logic high. As a result everywhere the Q will be logic high, it's a constant.
+
+### How it looks after Synthesis
+
+```
+Commands we use for Synthesis:
+
+yosys> read_liberty -lib ../my_lib/lib/sky130_fd_sc_hd__tt_025C_1v80.lib
+yosys> read_verilog dff_const2.v
+yosys> synth -top dff_const2.v
+yosys> dfflibmap -liberty ../my_lib/lib/sky130_fd_sc_hd__tt_025C_1v80.lib     //dfflibmap is the switch, which is telling the sinthesizer for sequaltial circuits (mainly for dff and latches) what libreary does to pick
+yosys> abc -liberty ../my_lib/lib/sky130_fd_sc_hd__tt_025C_1v80.lib
+yosys> show
+```
+![image](https://user-images.githubusercontent.com/61839839/123481131-f0ab7c80-d620-11eb-9781-507da44d46d5.png)
+
+Inspite of having clk, reset and all my Q is alway at logic high. So there is no need of any flop. It just removed everything and connected 1'b1 to Q through a buffer.
+> Note :In case you seeing the statistics it has not infered an dff for dff_const2
+
+For the **third** lab we are considering the dff_const3.v design. The circuit diagram representation of the verilog module is given bellow :
+
+```verilog
+module dff_const3(input clk, input reset, output reg q);
+reg q1;
+
+always @(posedge clk, posedge reset)
+begin
+	if(reset)
+	begin
+		q <= 1'b1;
+		q1 <= 1'b0;
+	end
+	else
+	begin
+		q1 <= 1'b1;
+		q <= q1;
+	end
+end
+
+endmodule
+```
+![image](https://user-images.githubusercontent.com/61839839/123485880-a4fcd100-d628-11eb-8ae2-bd2cbaa521b3.png)
+
+Here we have two flop clearly. Both are getting the same clk and same reset, but upon reset Q is becoming 1'b1 and Q1 is becomig 1'b0. So the flop A is a reset flop and the flop B is a set flop (as shown in the figure).  
+
+### Fig: Waveform after Simulating the dff_const2.v using iverilog 
+
+![image](https://user-images.githubusercontent.com/61839839/123484928-c2c93680-d626-11eb-8893-27e61bc83ed4.png)
+
+So Q1 is a reset flop, so when ever reset is applied Q1 is going to be zero. After the reset getting zero Q1 will wait for the next positive clk edge to become logic high and it will be permanently logic high after that.So itis clear that Q1 can't be optimized.
+Now Q is a set flop, upon reset Q will become one (as in the design reset is acting as a set input for the Q). So at the portion mentioned in the figure Q1 is going to be logic high after Tcq (clock to Q delay), so in this edge flop b will sample the value of zero and it will become logic high at the next positive edge of the clock. As a result Q will be always high except one clk cycle.
+So we can't remove flop A or flop B, connected to constant.
+
+### How it looks after Synthesis
+
+```
+Commands we use for Synthesis:
+
+yosys> read_liberty -lib ../my_lib/lib/sky130_fd_sc_hd__tt_025C_1v80.lib
+yosys> read_verilog dff_const3.v
+yosys> synth -top dff_const3
+yosys> dfflibmap -liberty ../my_lib/lib/sky130_fd_sc_hd__tt_025C_1v80.lib     //dfflibmap is the switch, which is telling the sinthesizer for sequaltial circuits (mainly for dff and latches) what libreary does to pick
+yosys> abc -liberty ../my_lib/lib/sky130_fd_sc_hd__tt_025C_1v80.lib
+yosys> show
+```
+![image](https://user-images.githubusercontent.com/61839839/123486817-6831d980-d62a-11eb-8bda-9a2264b876f7.png)
+
+So according to out assumtion Yosys did the same, it is clear from the picture that first flop is the reset and the second flop is the set flop. As we have used active high set and reset thats why we can see inverter in the path.
+
+> Pint to be remember :
+	
+	For Sequential optimizations; not every flop that has a constant at the input is getting optimized, we need to look at the set/reset connections and see if q is getting a constant value or changing. we can optimize it only if the value og q is fixed.
+
+
+## Sequential Optimization for unused outputs :
+
+For understanding the Unused output Optimization we have considered a three bit up counter, counter_opt.v design. 
+
+```verilog
+module counter_opt (input clk , input reset , output q);
+reg [2:0] count;
+assign q = count[0];
+
+always @(posedge clk ,posedge reset)
+begin
+	if(reset)
+		count <= 3'b000;
+	else
+		count <= count + 1;
+end
+
+endmodule
+```
+Basically this module is accepting clk, reset and generating output q. If there is a reset the counter is initialized to zero else the counter is incremented. As it is a 3 bit sequance it can;t go beyond 7, after 7 it rolls backs to the initial stage. Acording to the functionality output q has no dependecy on count[1] and count[2], thats why we are least bothered about them. So these are our unused outputs and our objective to optimise the design. So if we have a close look at cout[0], there is togling at every clock cycle.  
+
+| cout[2] | cout[1] | cout[0] |
+| ------- | ------- | ------- |
+|    0    |    0    |    0    |
+|    0    |    0    |    1    |              
+|    0    |    1    |    0    |
+|    0    |    1    |    1    |
+|    1    |    0    |    0    |
+|    1    |    0    |    1    |
+|    1    |    1    |    0    |
+|    1    |    1    |    1    |
+|    0    |    0    |    0    |
+
+
+### How it looks after Synthesis
+
+```
+Commands we use for Synthesis:
+
+yosys> read_liberty -lib ../my_lib/lib/sky130_fd_sc_hd__tt_025C_1v80.lib
+yosys> read_verilog counter_opt.v
+yosys> synth -top counter_opt
+yosys> dfflibmap -liberty ../my_lib/lib/sky130_fd_sc_hd__tt_025C_1v80.lib     //dfflibmap is the switch, which is telling the sinthesizer for sequaltial circuits (mainly for dff and latches) what libreary does to pick
+yosys> abc -liberty ../my_lib/lib/sky130_fd_sc_hd__tt_025C_1v80.lib
+yosys> show
+```
+
+![image](https://user-images.githubusercontent.com/61839839/123490408-9535ba80-d631-11eb-90f1-d0f7ea594766.png)
+
+So as we can see there is only one flop, but the 3 bit counter should have three flop. But why it's showing like this? according the netlist if we redraw the circuit let's see what we get.
+
+![image](https://user-images.githubusercontent.com/61839839/123490840-c6fb5100-d632-11eb-82b7-e6ec13d96978.png)
+
+This is a toggling scenerio (where q is not of q) and the unused two bits are complitely optimized away. So as a conclussion any logic on which output is not dependent those must be optimized like what we saw in this example.
 
 
 
