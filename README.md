@@ -139,12 +139,105 @@ Fig: List of files inside verilog_files
 ![image](https://user-images.githubusercontent.com/61839839/123394251-8cef6800-d5bc-11eb-9b5f-96e038764dff.png)
 ![image](https://user-images.githubusercontent.com/61839839/123394283-98429380-d5bc-11eb-971b-97434ad2b2e9.png)
 
-  
+## Labs using iverilog and gtkwave :
 
+Let's look at a 2x1 MUX as an example. 
 
+Logic Diagram
+![image](https://user-images.githubusercontent.com/61839839/123401280-4140bc80-d5c4-11eb-9424-c8b9fe8a56d5.png)
 
+Truth Table
+| Sel | y |
+| --- | - |
+| 0   | i0|
+| 1   | i1|
 
+Boolean Expression
+```
+ Y = Sel'.i0 + Sel.i1
 
+```
+Circuit Diagram
+
+![image](https://user-images.githubusercontent.com/61839839/123402842-caa4be80-d5c5-11eb-8122-d7aac897f44a.png)
+
+Verilog Code 
+
+> Use Command : __vim good_mux.v__
+```verilog
+module good_mux (input i0 , input i1 , input sel , output reg y);
+always @ (*)
+begin 
+       if(sel)
+                y <= i1;
+        else
+                y <= i0;
+ end
+ endmodule
+
+```
+Test Bench
+
+> Use Command : **vim tb_good_mux.v**
+```verilog
+`timescale 1ns / 1ps
+module tb_good_mux;
+       // Inputs
+       reg i0,i1,sel;
+       // Outputs
+       wire y;
+       
+       // Instatiate the Unit Under Test (UUT)
+       good_mux uut (
+               .sel(sel),
+               .i0(i0),
+               .i1(i1),
+               .y(y)
+       );
+       
+       initial begin
+       $dumpfile("tb_good_mux.vcd");
+       $dumpvars(0,tb_good_mux);
+       // Initialize Inputs
+       sel = 0;
+       i0 = 0;
+       i1 = 0;
+       #300 $finish;
+       end
+       
+always #75 sel = ~sel;
+always #10 i0 = ~i0;
+always #55 i1 = ~i1;
+endmodule
+        
+```
+- Now we have to go to our design folder verilog_files which contains all our design files.
+- Load the design, which we want to simulate in iVerilog.
+```
+iverilog good_mux.v tb_good_mux.v
+```
+Here as a design we are using good_mux.v and tb_good_mux.v as test bench
+
+Fig: Shows loading good_mux.v and tb_good_mux.v into the simulator 
+
+![image](https://user-images.githubusercontent.com/61839839/123406486-9bdc1780-d5c8-11eb-845d-c5c418f4a008.png)
+
+- Dump the file
+```
+./a.out
+```
+- Load the VCD file into the GTKwave form viewer
+```
+gtkwave tb_good_mux.vcd
+```
+- Shows the gtkwaveform viewer opened to view the functionality of the design
+> In wavefrom viwer we can notice when ever the Sel goes high the output follows the i1 and when ever Sel goes low the output follows i0. Which meets our characteristics of a 2-to1 Mux
+> 
+Fig: Shows executing ./a.out, dumping the VCD file and showing the output waveform in GTKwave
+
+![image](https://user-images.githubusercontent.com/61839839/123408212-62a4a700-d5ca-11eb-82e3-5e39262ad5fb.png)
+
+## Introduction to Yosys and Logic Synthesis
 
 
 
