@@ -93,10 +93,53 @@ always #10 i0 = ~i0;
 always #55 i1 = ~i1;
 endmodule
 ```         
+Setup of a design nad Test Bench illustrated bellow:
+![Test bench Setup](https://raw.githubusercontent.com/avinaba123/RTL-Design-and-Synthesis-using-Sky130/main/Images/Day%201/Testbench%20setup.png)
 
+Consider a design with a set of primary inputs that can range from one to several. Now, stimulus must be created for all of these primary inputs, and stimulus must be observed for all of the primary outputs. So according to the figure here's a Stimulus Generator at the left, from where the stimuli are generated and faded to the DUT (Design under test) and according to the stimulus the changes in primary output is observed by Stimulus Observer. The design will be initiated in the testbench, and then a mechanism will be used to apply Stimulus to it.
 
+```
+Point to remember: 
+         - Design might have one or more primary inputs, one or more primary outputs.
+	 - Test Bench does not have any primary input or primary output.
+```
+### Simulator :
 
+Simulation is a technique for testing if the RTL code works as expected by applying different input stimuli to the design at different periods. Simulation is a well-known approach for ensuring the design's resilience. It's comparable to how a manufactured chip would be operated in real life and how it will react to various inputs.
 
+```
+Dasic working principle of Simulator:
+	 - Simulator looks for the changes on the input Signals.
+	 - If there is no change in the input, the simulator is not going to evaluate the output.
+```
+### Simulation Flow :
+![image](https://user-images.githubusercontent.com/61839839/123386852-b99f8180-d5b4-11eb-8978-34d1d985519e.png)
+
+Assume a design and the test bench that was created for a particular design. Now, we already know that the Simulator exclusively checks for changes in the input and then dumps only those changes in the output. As a result, a Simulation's output will be a VCD ( Value Change Dump) File. Now, in order to examine the VCD file, we'll use a programme called GTKwave, which will allow us to see the waveform output and check the design's functionality. 
+
+### Setting up the Evironment:
+
+The first step is cloning the [vsdflow](https://github.com/kunalg123/vsdflow) and [sky130RTLDesignAndSynthesisWorkshop](https://github.com/kunalg123/sky130RTLDesignAndSynthesisWorkshop) repositories from Kunal's profile, we can get to work.
+
+```
+Note:
+	- Cloning : cloning means just making a copy of the repository.
+  	- SKY130RTLDesignAndSynthesisWorkshop : It is the github page for the workshop.
+	-  my_lib : It contains all library files which are needed.
+           	    It has two folders namely lib, verilog_model.
+	- lib : It contains the standard cell library which will be used for the synthesis.
+	- verilog_model : This contains all the standard cell verilog models of the standard cells which are present in the lib.
+	- Verilog_files : It is a folder containing all the lab experiments. It contains all the verilog source files, test bench files and so on.
+         
+```
+Fig : Files inside my_lib, lib, verilog_model
+![image](https://user-images.githubusercontent.com/61839839/123394507-d8097b00-d5bc-11eb-8eaa-51d320696f4b.png)
+
+Fig: List of files inside verilog_files
+![image](https://user-images.githubusercontent.com/61839839/123394251-8cef6800-d5bc-11eb-9b5f-96e038764dff.png)
+![image](https://user-images.githubusercontent.com/61839839/123394283-98429380-d5bc-11eb-971b-97434ad2b2e9.png)
+
+  
 
 
 
