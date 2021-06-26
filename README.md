@@ -672,40 +672,307 @@ So as we can see there is only one flop, but the 3 bit counter should have three
 This is a toggling scenerio (where q is not of q) and the unused two bits are complitely optimized away. So as a conclussion any logic on which output is not dependent those must be optimized like what we saw in this example.
 
 
+
 ## 6. Day 4:
 
 ### Gate Level Simulation, Blocking vs Non-Blocking Assignments, Synthesis-Simulation Mismatch
 
 So the first question comes what is Gate Level Simulation? and why we need dhis?
 It is nothing but running the test bench with netlist as Design Under Test (DUT). As the netlist is logically same as the RTL code, then why we do this? There are two main casues:
-	- We want to verify the logical correctness of the design after synthesis. (Why we need to check this is our main concern for this day)
-	- Ensuring the timing of the design is met
 	
-
+- We want to verify the logical correctness of the design after synthesis. (Why we need to check this is our main concern for this day)
+- Ensuring the timing of the design is met
+	
+![image](https://user-images.githubusercontent.com/61839839/123517099-eccd3800-d6bc-11eb-80cd-ea3ece29b700.png)
 
 For the simulation setup for netlist is shown above. The only diffrance is that here we are running the test bench with netlist as Design Under Test (DUT). And the netlist is going to have all the standard cells are instanciated in it. So we need to tell to iverilog that what is the meaning of those standard cells. Thats why we proided the extra files to iverilog. Gate level verilog models may be of two types :
-	- Timing aware - Where we can validate functionality and timing bith of them
-	- Functional - We can only validate functionality 
+	
+- Timing aware - Where we can validate functionality and timing bith of them
+- Functional - We can only validate the functionality 
 
 ### Synthesis-Simulation Mismatch
 
+Synthesis-Simulation Mismatch is one of the common cause for which we go for GLS. Again synthesis and simulation missmatch can be happen because o some resons:
+
+1. Missing sensitivity List
+2. Blocking vs Non blocking assignments
+3. Non Standard Verilog coading
+
+### 1.  Missing sensitivity List
+
+Simulator works on activity, the output only change when there is a change in input. To elastrate this phenomenon we are considering a verilog code of 2:1 Mux.
+
+```verilog
+module mux (input i0 , input i1 , input sel , output reg y);
+always @ (sel)
+begin 
+       if(sel)
+                y <= i1;
+        else
+                y <= i0;
+ end
+ endmodule
+ ```
+So the alwasys block is geting evaluated only when sel is changing. Now when sel is low there are activities on i1 and when sel is high there are activities on i2. But according to our simulator principle if there is no change in sel, the output will not be evalutaed for those changes in i1 and i2. At the simulation it will show it's behaviour like a double edged flop. So how to came over from this scenario ?
+
+```verilog
+module mux (input i0 , input i1 , input sel , output reg y);
+always @ (*)
+begin 
+       if(sel)
+                y <= i1;
+        else
+                y <= i0;
+ end
+ endmodule
+ ```
+So if we want to simulate the verilog now, the always block will be exicuted for any change of inputs, that may be sel or i1 or i2. In this case the simulator will show it's behaviour like a 2:1 Mux, according to our expectation.
+
+### 2. Blocking vs Non blocking assignments
+
+Before we begin, keep in mind that both statements are indeed contained within **always** blocks. 
+
+#### Non blocking statements
+
+1. At first when always block is entered the expression of the RHS is exicuted and only then it is assigned to LHS
+2. all the expressions are evaluated parallelly
+
+#### Blocking statements
+
+1. Executes sequentially, in the order it has been written
+2. Caveat 1: order matters
+So to explain how the order of blocking statement matters, we have to take two examples:
+
+```verilog
+module code (inpu clk, input reset, input d, output reg q);
+reg q0;
+always@(posedge clk, posedge reset)
+begin
+if(reset)
+begin  
+	q0=1'b0;
+	q=1'b0;
+end
+else
+begin 
+	q=q0;
+	q0=d:
+end endmodule
+```
+
+```verilog
+module code (inpu clk, input reset, input d, output reg q);
+reg q0;
+always@(posedge clk, posedge reset)
+begin
+if(reset)
+begin  
+	q0=1'b0;
+	q=1'b0;
+end
+else
+begin 
+	q0=d;
+	q=q0:
+end endmodule
+```
+Comparing the above codes, the first one will show the correct value. But in the second code in the third begin statement instead of q=qo then q0=d but we've q0=d followed by q=q0 so by the time q0 is assigned to q, q0 will be already having the value of d that means there will be only one flop instead of two in the first code of this section.
+
+So to get rid of the problem associated wih the second code we can just use non blocking statements insted of the blocking assignment. As for non blocking statements the order does not matter, it will first execute the RHS and then the value will be assign to the RHS. As shown bellow:  
+
+```verilog
+module code (inpu clk, input reset, input d, output reg q);
+reg q0;
+always@(posedge clk, posedge reset)
+begin
+if(reset)
+begin  
+	q0=1'b0;
+	q=1'b0;
+end
+else
+begin 
+	q0<=d;
+	q<=q0:
+end endmodule
+```
+3. Caveat 2: this will cause Synthesis-Simulation Mismatch
+
+To further grasp the problem, we use a different example. 
+
+```verilog
+module code(input a, input b, input c, output reg y);
+reg q0
+always@(*)
+
+begin 
+	y=q0&c;
+	q0=a|b;
+end
+endmodule
+```
+Here in the above code, first y=q0&c is exicuted and then q0=a|b  is exicuted, so for the first step q0 will be taking the previous value to evaluate y then a|b is assigned to q0. So this code mimic a delay or a flop.
+As a solution to this problem, we can suggest to order the expressions as shown bellow:
+
+```verilog
+module code(input a, input b, input c, output reg y);
+reg q0
+always@(*)
+
+begin 
+	y=q0&c;
+	q0=a|b;
+end
+endmodule
+```
+So as a conclussion, because of this type of issues it becomes paramount importance to run the GLS on the netlist and match the functionality.
+
+### Lab for GLS Synthesis Simulation Mismatch
+
+In this lab we will the design called ternary_operator_mux.v, that is coded to function properly, below we see the simulation waveforms befor synthesis.
+Here is the Verilog code of the design
+
+```verilog
+module ternary_operator_mux (input i0 , input i1 , input sel , output y);
+	assign y = sel?i1:i0;
+	endmodule
+
+```
+
+```terminal
+The codes we have to use for the simulation of the RTL file is similar to the previous cases
+
+ iverilog ternary_operator_mux.v tb_ternary_operator_mux.v
+ ./a.out
+ gtkwave tb_ternary_operator_mux.vcd	
+ 
+```
+### Fig: How the Output Waveform looks before Synthesis
+
+![image](https://user-images.githubusercontent.com/61839839/123521129-5dcb1a80-d6d2-11eb-81bf-8c83d4091598.png)
+
+So as we can see the waveform is showing perfect behaviour of an mux. So new we want to Synthesize the design and looking for if there is some changes.
+
+```terminal
+yosys> read_liberty -lib ../my_lib/lib/sky130_fd_sc_hd__tt_025C_1v80.lib
+yosys> read_verilog ternary_operator_mux.v
+yosys> synth -top ternary_operator_mux
+yosys> abc -liberty ../my_lib/lib/sky130_fd_sc_hd__tt_025C_1v80.lib
+yosys> write_verilog -noattr ternary_operator_mux_net.v
+yosys> show
+```
+![image](https://user-images.githubusercontent.com/61839839/123521529-d501ae00-d6d4-11eb-9e4a-cddb44800be6.png)
+
+So as we can see Yosys also invoked an 2:1 Mux for this design. Now we want to check the GLS, for any un expected synthesis simulation mismatch.
+Steps to do GLS:
+
+```terminal 
+iverilog ../my_lib/verilog_model/primitives.v ../my_lib/verilog_model/sky_fd_sc_hd.v ternary_operator_mux_net.v tb_ternary_operator_mux.v
+./a.out
+gtkwave tb_ternary_operator_
+mux.vcd
+
+```
+We can clearly see that, we need to invoke the two extra .v files during the simulation phase. Those files have detaild description about the standard cells, which is used for the synthesis. after opening gtkwave, next to the uut, we can see an expand symbol. This is how we know this is the netlist simulation, there was no such interconnection in RTL simulations.
+
+![image](https://user-images.githubusercontent.com/61839839/123521408-12b20700-d6d4-11eb-9f6a-78eab1cb3740.png)
+
+In the next session the demonstration the mismatch between synthesis and simulation, we use the file bad_mux.v
+
+```verilog
+module bad_mux (input i0 , input i1 , input sel , output reg y);
+always @ (sel)
+begin
+	if(sel)
+		y <= i1;
+	else 
+		y <= i0;
+end
+endmodule
+```
+This is the same example that we have discussed yearlier. So the alwasys block is geting evaluated only when sel is changing. Now when sel is low there are activities on i1 and when sel is high there are activities on i2. But according to our simulator principle if there is no change in sel, the output will not be evalutaed for those changes in i1 and i2. At the simulation it will show it's behaviour like a double edged flop.
+To simulate the design before synthesis and after synthesis the commands should be followed as the previous case.
+
+### Fig: How the Output Waveform looks before Synthesis
+
+![image](https://user-images.githubusercontent.com/61839839/123523980-03878500-d6e5-11eb-9fd0-cc5d9961fae3.png)
 
 
+So clearly this is not working like Mux. When select is low, i0 should be selected. But after that their is no activity on select, so the activities of the io will not be senced by the always block. Now when select is raised high, i1 is selected. So the output goes high. After that again there is no activity on select but the i1 is toggling, which is not senced by the always block.
+
+Synthesizing and writing to file for GLS
+
+```terminal
+yosys> read_liberty -lib ../my_lib/lib/sky130_fd_sc_hd__tt_025C_1v80.lib
+yosys> read_verilog bad_mux.v
+yosys> synth -top bad_mux
+yosys> abc -liberty ../my_lib/lib/sky130_fd_sc_hd__tt_025C_1v80.lib
+yosys> write_verilog -noattr bad_mux_net.v
+yosys> show
+```
+
+![image](https://user-images.githubusercontent.com/61839839/123524763-046ee580-d6ea-11eb-8f17-d8eba8c0b91b.png)
+
+By comparing the RTL sim and the GLS, it is clear that they vary, in the former output y is not following i0 when select is 0.
+We can clearly observe that a missing sensitivity list will have this effect. If you're not sure, use always @(*), which indicates the always block will be evaluated every time a signal changes. 
+
+### Fig: How the Output Waveform looks at the time of GLS
+
+![image](https://user-images.githubusercontent.com/61839839/123524805-46982700-d6ea-11eb-8059-5de3fef5f4cf.png)
 
 
+### Lab for GLS Synthesis Simulation Mismatch due to blocking Statements
+
+As previously stated mismatches can arise due to gaps in logic layout. To illustrate this we will consider a designe named as blocking_caveat.v. The verilog file is given bellow. 
+
+```verilog
+module blocking_caveat (input a , input b , input  c, output reg d); 
+reg x;
+always @ (*)
+begin
+	d = x & c;
+	x = a | b;
+end
+endmodule
+```
+Let's assume for a certaintime a and b is low, so according the logical expression x is low. In the next expression x is ANDed with c, so overall output d must be zero for this case. Let's see how the simulation result shows.
+To simulate the design before synthesis and after synthesis the commands should be followed as the previous case.
+
+### This is what the RTL simulation looks like for the blocking_caveat.v module
+
+![image](https://user-images.githubusercontent.com/61839839/123525357-a04e2080-d6ed-11eb-855c-c5a364c610b2.png)
 
 
+But at 100ns for the same combination of inputs, that we have discussed early, we are getting output d = 1. But why so?
+The ans is a|b is evaluated using the value it was assigned from the last round of execution, and now it is ANDed with the C value in current execution round. As a result, the computation's outcome will be incorrect. In simulation, X will look like a flop. 
+
+Synthesizing;
+
+```terminal
+yosys> read_liberty -lib ../my_lib/lib/sky130_fd_sc_hd__tt_025C_1v80.lib
+yosys> read_verilog blocking_caveat.v
+yosys> synth -top blocking_caveat
+yosys> abc -liberty ../my_lib/lib/sky130_fd_sc_hd__tt_025C_1v80.lib
+yosys> write_verilog -noattr blocking_caveat_net.v
+yosys> show
+```
+
+Now after Synthesis we got a netlist like shown bellow. Clearly there is no latch involved, it is a OR to AND gate which is invoked by Yosys (here a and b are ORed and the output of that is ANDed with c)
+
+![image](https://user-images.githubusercontent.com/61839839/123525971-49971580-d6f2-11eb-83c5-1fbc0dfb03ab.png)
 
 
+Performing GLS;
 
+To simulate the design before synthesis and after synthesis the commands should be followed as the previous case.
 
+![image](https://user-images.githubusercontent.com/61839839/123525829-3d5e8880-d6f1-11eb-948f-2c9cb34e2f3a.png)
 
+So compairing those two waveform provided for this case we can observe in RTL Simulation; when A is low, B is low, output is low. But for Gate Level Simulation; A is low, B is low, output is high. So the next question comes why so?
+The ans is very simple for RTL simulation it's looking at the past value of a and b.
 
-
-
-
-
-
+> Point to Remember:
+> Blocking statements should be used with caution; if you must use them, do so carefully. 
 
 
 ## ACKNOWLEDGEMENT
