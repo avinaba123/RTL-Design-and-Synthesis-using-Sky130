@@ -672,6 +672,40 @@ So as we can see there is only one flop, but the 3 bit counter should have three
 This is a toggling scenerio (where q is not of q) and the unused two bits are complitely optimized away. So as a conclussion any logic on which output is not dependent those must be optimized like what we saw in this example.
 
 
+## 6. Day 4:
+
+### Gate Level Simulation, Blocking vs Non-Blocking Assignments, Synthesis-Simulation Mismatch
+
+So the first question comes what is Gate Level Simulation? and why we need dhis?
+It is nothing but running the test bench with netlist as Design Under Test (DUT). As the netlist is logically same as the RTL code, then why we do this? There are two main casues:
+	- We want to verify the logical correctness of the design after synthesis. (Why we need to check this is our main concern for this day)
+	- Ensuring the timing of the design is met
+	
+
+
+For the simulation setup for netlist is shown above. The only diffrance is that here we are running the test bench with netlist as Design Under Test (DUT). And the netlist is going to have all the standard cells are instanciated in it. So we need to tell to iverilog that what is the meaning of those standard cells. Thats why we proided the extra files to iverilog. Gate level verilog models may be of two types :
+	- Timing aware - Where we can validate functionality and timing bith of them
+	- Functional - We can only validate functionality 
+
+### Synthesis-Simulation Mismatch
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 ## ACKNOWLEDGEMENT
