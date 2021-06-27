@@ -1027,10 +1027,143 @@ case(signal)
 There are very few caveats with case:
 
 1. Incomplete case statement: It is just like incomplete if. As a result it can cause inferred latches in design, which is hazardous. So as a solution it is suggested to code a default case at the end.
-2. Partial assignments in case:  
+2. Partial assignments in case: To illustrate the partial assignments we consider the verilog module partial_case_assign.v
+
+```verilog
+module partial_case_assign (input i0 , input i1 , input i2 , input [1:0] sel, output reg y , output reg x);
+always @ (*)
+begin
+	case(sel)
+		2'b00 : begin
+			y = i0;
+			x = i2;
+			end
+		2'b01 : y = i1;
+		default : begin
+		           x = i1;
+			   y = i2;
+			  end
+	endcase
+end
+endmodule
+```
+Here we never specified what is the value of y  in case 2; that is called a partial assignment. By doing that we created an unexpected inferred latch. So as a solution it is suggested to assign all the outputs in all the segments of case.
+
+3. Overlapping case statements: 
+
+```verilog
+case(signal)
+  2'b00 = begin
+       	...
+  	    end
+  2'b01 = begin
+      	...
+ 	    end
+  2'b10 = begin
+      	...
+ 	    end
+  2'b1? = begin
+      	...
+ 	    end
+ endcase
+
+```
+As we know when we and dealing with case statements, it checks every case even if it finds a match. In the above mentioned verilog design for the 10 value of the signal, case 3 and 4 both matchs, and as a result it causes unpredictable output. This types of problem is not common with the if staement because it exits at a matched condition.
+
+### Lab: Incomplete if
+
+The following code snippet, given bellow is taken from the labs which describes an incomplete if situation pefectly.
+
+```verilog 
+ module incomp_if (input i0 , input i1 , input i2 , output reg y);
+   always @ (*)
+   begin
+     if(i0)
+	    y <= i1;
+   end
+ endmodule
+
+```
+As we had discussed earlier, an if statement is always translates to a mux by the sithesizer. So this design should be translated into mux, having i0 as the select signal
+i1 as one of the inputs, y as the output and the second input is tied with the output. So it will essentially work as an D latch.
+
+![image](https://user-images.githubusercontent.com/61839839/123560848-70bd1800-d7c2-11eb-807c-41330190fc16.png)
+
+So first we need to check the RTL Simulation before synthesis.
+
+```terminal
+ iverilog incomp_if.v tb_incomp_if.v
+ ./a.out
+ gtkwave tb_incomp_if.vcd
+```
+![image](https://user-images.githubusercontent.com/61839839/123561164-7ca9d980-d7c4-11eb-8f6b-f541870898c7.png)
+
+After the simulation we can clearly observe when ever our i0 (select)) is high our output follows the i1, but at the time i0 goes low y latches on to something. So when ever i0 goes low the ckt is latching the previous value of the output. There is no alteration in y whenever i0 is low, this is what happens with an incomplete if.
+
+Now we are interested to have a glace into synthesis and observe what happens when this design get synthesized.
+
+```terminal
+yosys> read_liberty -lib ../my_lib/lib/sky130_fd_sc_hd__tt_025C_1v80.lib
+yosys> read_verilog incomp_if.v
+yosys> synth -top tb_incomp_if
+yosys> abc -liberty ../my_lib/lib/sky130_fd_sc_hd__tt_025C_1v80.lib
+yosys> show
+```
+![image](https://user-images.githubusercontent.com/61839839/123561171-86334180-d7c4-11eb-80f8-73f7f003507c.png)
+
+As we are expected after the synthesis it is clear that there is an inferred latch. Even if we had tried to design a mux but the incomplete if caveat caused Yosys to synthesize it using a latch. 
+
+To look more further about the problems associated with incomplete if caveat. In the next session we had considered a verilog module namely incomp_if2.v
+
+```verilog
+module incomp_if2 (input i0 , input i1 , input i2 , input i3, output reg y);
+always @ (*)
+begin
+	if(i0)
+		y <= i1;
+	else if (i2)
+		y <= i3;
+
+end
+endmodule
+```
+
+In this design again it is a clear scenerio of Mux based design. The differance is that here is two mux associated with the design as shown in the figure. 
+
+![image](https://user-images.githubusercontent.com/61839839/123561576-c98eaf80-d7c6-11eb-88f4-5aa768019174.png)
+
+This design is quite similar with the previous case when both i0 and i2 are logic low y latches on to the previous value of y.
+First we need to check the RTL Simulation and observe it's behaviour before synthesis.
+
+```terminal
+ iverilog incomp_if2.v tb_incomp_if.v
+ ./a.out
+ gtkwave tb_incomp_if.vcd
+```
+
+![image](https://user-images.githubusercontent.com/61839839/123561754-e5df1c00-d7c7-11eb-96c0-2c0541b5befd.png)
+
+So from the simulation report it is clear that when ever i0 is high y exactly follows i1. When i0 is low it looks towords i2. Now when both i0 and i2 both are low it get latched on the previous value of y and at the end when i0 is low and i2 is high y follows i3. 
+
+For our confirmation we are interested to have a deep drive into synthesis part and observe what happens when this design get synthesized.
+
+```terminal
+yosys> read_liberty -lib ../my_lib/lib/sky130_fd_sc_hd__tt_025C_1v80.lib
+yosys> read_verilog incomp_if2.v
+yosys> synth -top tb_incomp_if2
+yosys> abc -liberty ../my_lib/lib/sky130_fd_sc_hd__tt_025C_1v80.lib
+yosys> show
+```
+
+![image](https://user-images.githubusercontent.com/61839839/123561913-df04d900-d7c8-11eb-9a42-4e657d97990d.png)
+
+So according to our expectation we can clearly observe the latch when i0 and i2 both are low.
+
+> Point to remember :
+> 	According to our observation without the else clause, it insists Yosys to synthesize using a latch.
 
 
-
+### Lab: Incomplete Case
 
 
 
