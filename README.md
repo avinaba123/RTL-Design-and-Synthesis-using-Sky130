@@ -975,6 +975,96 @@ The ans is very simple for RTL simulation it's looking at the past value of a an
 > Blocking statements should be used with caution; if you must use them, do so carefully. 
 
 
+
+## 7. Day 5:
+
+### If Statement:
+
+In Verilog, statements are used in innovative ways to describe hardware, similar to how they are used in software programming. The If/Else statement is the most fundamental. The following are some examples of different combinations: 
+
+```verilog
+if(expression)
+     single statement
+
+
+if (expression)
+  begin
+	multiple statements
+  end
+else (expression)
+   begin
+	multiple statements
+   end
+
+
+if(expression)
+	single statement
+else if (expression)
+   begin
+	multiple statements
+   end else
+    single statement
+
+```
+
+In Verilog, improper statement use might result in unexpected results. The incomplete if is one of such repercussions. Any if statement that does not finish with a proper else clause is called an incomplere if. As a result we can see Inferred latches in the design, which is hazardous. So as a solution to this, consider the hardware you'll be writing code for when you're writing it. Is "incomplete if" good or bad, this purely depends on  if it is intended or not. For few cases like counter the inferred latch is intentionally introduced. But we can't have inferred latches in a combinational circuit. 
+
+### Case Statement :
+
+```verilog
+case(signal)
+    <case1> = begin
+	     	...
+		     end
+    <case2> = begin
+	          ...
+		      end
+    default = begin
+              ...
+              end
+
+```
+There are very few caveats with case:
+
+1. Incomplete case statement: It is just like incomplete if. As a result it can cause inferred latches in design, which is hazardous. So as a solution it is suggested to code a default case at the end.
+2. Partial assignments in case:  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ## ACKNOWLEDGEMENT
 ## REFERENCES
   
