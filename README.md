@@ -25,9 +25,43 @@ this might not be the ideal place to start.  In this workshop I was offered the 
       - Introduction to Logic Synthesis 
       - Labs using Yosys and SKY130 PDKs
 3. Day 2
+    - Timing libs, Hierarchical Vs Flat Synthesis and Efficient flop coding styles
+      - Introduction to timing .lib
+      - Labs associated with Introduction to timing.lib
+      - Hierarchical Synthesis vs Flat Synthesis
+      - Why Flops and Flop coding styles?
+      - Lab for Flip-Flop Simulation
+      - Interesting optimisations
 4. Day 3
+    - Combinatorial and Sequential Optimizations
+      - Constant Propagation
+      - Boolean Logic Optimization
+      - Combinational Logic Optimization Lab
+      - Sequential Logic Optimization Lab
+      - Sequential Optimization for unused outputs
+      
 5. Day 4
+    - Gate Level Simulation, Blocking vs Non-Blocking Assignments, Synthesis-Simulation Mismatch
+      - GLS
+      - Synthesis-Simulation Mismatch
+      - Lab for GLS Synthesis Simulation Mismatch
+      - ab for GLS Synthesis Simulation Mismatch due to blocking Statements 
 6. Day 5
+    - If Case For Loop and for Generate statements
+      - If Statement
+      - Case Statement
+      - Lab: Incomplete if
+      - Lab: Incomplete Case
+      - Lab: Complete Case
+      - Lab: Partial assignment case
+      - Lab: Overlapping cases
+      - For Loops
+      - Lab: Mux using a case statement
+      - Lab: Demux using a case statement
+      - Lab: Ripple Carry Adder
+ 7. Acknowledgement
+ 8. Referances
+
 
 
 ## 1. Some glimps about YOSYS OPEN SYNTHESIS SUITE, SKY130 TECHNOLOGY, iVerilog SIMULATOR and GTKwave
@@ -868,11 +902,54 @@ endmodule
 
 Upon closer inspection of the waveform, we notice that changes at the d pin are reflected at the q pin at clock edge. As long as async reset is high, q stays at one, when it goes low, q now depends on and follows next the clock edge as soon as set goes back to one, q locks at one irrespective of the clock.
 
+## Interesting Optimizations
+
+For this lab we will be using two verilog design modules those are mult_2.v and mult_8.v
+
+``verilog
+module mul2 (input [2:0] a, output [3:0] y);
+	assign y = a * 2;
+endmodule
+```
+```verilog
+module mult8 (input [2:0] a , output [5:0] y);
+	assign y = a * 9;
+endmodule
+```
+First we come to the example mult_2.v. So it has a 3 bit input and 4 bit output. If we closely observe we can conclude that basically we don't need any cell to design. if you when we are multiplying any number with 2 then the same number will come except the last bit ia appended with zero. 
+
+So lets see what happens when we synthesize the design
+
+![image](https://user-images.githubusercontent.com/61839839/123681207-293c9780-d867-11eb-84da-4d6bb116cbad.png)
+
+As we can see it does not invoke any additional cells. So our prediction matches perfectly. If we check the generated netlist the logic will be same as stated above.
+
+![image](https://user-images.githubusercontent.com/61839839/123682055-255d4500-d868-11eb-8138-3a668b1bb6cb.png)
 
 
+In the next example  mult_8.v the verilog code is 
 
+```verilog
+module mult8 (input [2:0] a , output [5:0] y);
+	assign y = a * 9;
+endmodule
+```
 
+So it has a 3 bit input and 6 bit output. If we closely observe we can conclude that basically we don't need any cell to design. as 
 
+```
+we can write 
+a * 9 = a * [8+1]
+= a*8 + a
+a*8 is nothis but the same value with a except last three bit ia appended with zero and when we are adding this number with the three bit input a then optimized logic will be converted to y = {a,a}
+```
+Now lets synthsize the design and check our assumption
+
+![image](https://user-images.githubusercontent.com/61839839/123682670-e8458280-d868-11eb-9d36-1cac950a5c69.png)
+
+As we can see it does not invoke any additional cells. So our prediction matches perfectly. If we check the generated netlist the logic will be same as stated above.
+
+![image](https://user-images.githubusercontent.com/61839839/123682713-fabfbc00-d868-11eb-8be4-ca2aea55940d.png)
 
 
 ## 4. Day 3:
@@ -1293,7 +1370,9 @@ This is a toggling scenerio (where q is not of q) and the unused two bits are co
 
 ## 5. Day 4:
 
-### Gate Level Simulation, Blocking vs Non-Blocking Assignments, Synthesis-Simulation Mismatch
+## Gate Level Simulation, Blocking vs Non-Blocking Assignments, Synthesis-Simulation Mismatch
+
+### GLS
 
 So the first question comes what is Gate Level Simulation? and why we need dhis?
 It is nothing but running the test bench with netlist as Design Under Test (DUT). As the netlist is logically same as the RTL code, then why we do this? There are two main casues:
@@ -1596,6 +1675,8 @@ The ans is very simple for RTL simulation it's looking at the past value of a an
 
 ## 6. Day 5:
 
+## If Case For Loop and for Generate statements
+
 ### If Statement:
 
 In Verilog, statements are used in innovative ways to describe hardware, similar to how they are used in software programming. The If/Else statement is the most fundamental. The following are some examples of different combinations: 
@@ -1832,7 +1913,7 @@ Let see what happens we we synthesze the design
 Here we can observe that there is a muxing logic followed by an latch at the end. This is what we have expected and what we are seeing. This is completely in allignment with our understanding.
 
 
-### Complete Case:
+### Lab: Complete Case:
 
 Here we see the same implementation using a default case. So as a result latch disappears and it becomes an proper combinational logic.
 
@@ -1983,7 +2064,7 @@ There are maily two type of looping constructs, with having distinct functionali
 For evaluating expressions, the simple for loop is utilised. In is used every time inside the 'always' block. 
 For further illustration, below we have considered a mux that has been coded with a for loop:
 
-### Lab - Mux using a case statement
+### Lab: Mux using a case statement
 
 ```verilog
 module mux_generate (input i0 , input i1, input i2 , input i3 , input [1:0] sel  , output reg y);
@@ -2040,7 +2121,7 @@ Performing GLS
 ![image](https://user-images.githubusercontent.com/61839839/123612685-6467a800-d820-11eb-8eee-418f580c8011.png)
 
 
-### Lab - Demux using a case statement
+### Lab: Demux using a case statement
 
 In a demultiplexe, there several outputs correspoding to a single input. Depending on the select, one of the outputs will follow input. To check it's functionality we have considered demux_generate.v
 
@@ -2134,10 +2215,10 @@ gtkwave tb_rca.vcd
 As we can see the GLS and the RTL simulation perfectly matched with each other.
 
 
-## ACKNOWLEDGEMENT
+## Acknowledgement
 I do want to thank Mr. Kunal Ghosh and Mr. Shon Taware for clearing all my questions and helping me comprehend the ideas. I wish to express my gratitude to the entire team for providing us with such an informative session. I also want to thank Ms. AnaghaGhosh, Mr. Tapan Das, and Mr. Mukesh for their help. 
 
-# Referances
+## Referances
 I have also used those materials as referances for understanding those concepts provided in the workshop
 
 1. https://www.vlsisystemdesign.com/?v=a98eef2a3105
