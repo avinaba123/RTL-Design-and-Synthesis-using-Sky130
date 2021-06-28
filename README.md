@@ -239,17 +239,305 @@ Fig: Shows executing ./a.out, dumping the VCD file and showing the output wavefo
 
 ## Introduction to Yosys and Logic Synthesis
 
+### Introduction to Yosys
+
+### What is a synthesizer?
+
+Synthesizer is the tool, which is used for converting the RTL to netlist with the help of liberty (.lib) file. Yosys is an opensource Synthesizer tool, which is use for this workshop.
+
+### Levels of Abstraction
+
+### Fig: Different levels of abstraction of synthesis
+
+![image](https://user-images.githubusercontent.com/61839839/123626563-98e26080-d82e-11eb-9d35-4d9bc411b0f6.png)
+
+### Flow of Synthesis
+
+![image](https://user-images.githubusercontent.com/61839839/123626798-d9da7500-d82e-11eb-9b76-c922e48e3aeb.png)
+
+Consider we have a design and a liberty file which we will be applying to Yosys to get netlist from the synthesizer.
+
+### What is a netlist?
+
+Netlist is the representation of the RTL design in the form of standard cells provided in the liberty file.
+
+### How to verify our Synthesis
+
+![image](https://user-images.githubusercontent.com/61839839/123627575-d0054180-d82f-11eb-80dc-13aa4177b2f0.png)
+
+Let us consider, we have a netlist and the testbench associated with it. We apply both to the simulator. The only diffrance with the RTL simulation is that here we are running the test bench with netlist as Design Under Test (DUT). And the netlist is going to have all the standard cells are instanciated in it. So we need to tell to iverilog that what is the meaning of those standard cells. Thats why we proided the extra files to iverilog. The output is generated from the simulator is the VCD output file. We load VCD file to the GTKwave to observe the stimulus.
+
+>   Note :
+     - The output obtained during synthesis simulation should be same as the output observed during RTL simulation.
+     - We can use the same test bench which we had used during RTL simulation.The only diffrance with the RTL simulation is that here we are running the test bench        with netlist as Design Under Test (DUT).
+     - The set of primary inputs or primary outputs will remain same between the RTL design and the synthesized Netlist.
+
+### Performing Logic Synthesis
+
+Synthesis is the transformation of an behavioural code into a manufacturable device to carry out an desired functionality.
+
+Now for better illustration, we are considering consider the RTL code below:
+
+```verilog
+module sample_code(
+input clk, rst,
+output result, done);
+
+always@(posedge clk, posedge rst)
+if(rst)
+...
+else
+...
+endmodule
+..................
+..................
+
+```
+Simply this is a behavioural RTL design but we want a digital circuit looking like bellow
+
+![image](https://user-images.githubusercontent.com/61839839/123629294-bf55cb00-d831-11eb-9c7a-9f8c1cfed8b5.png)
+
+### But the question is how?
+Here comes the role of Synthesis.
+
+### What happens in the Synthesis?
+
+Synthesis converts a basic RTL design into a gate-level netlist that includes all of the designer's constraints. In other words, it is the process of converting an abstract design into a correctly implemented chip in terms of logic gates. 
+
+In general synthesis is done in multiple steps:
+
+1. Translating RTL into simple logic gates.
+2. Mapping those gates to original technology-dependent logic gates available in the liberty file.
+3. Optimizing the generated netlist keeping the constraints set by the designer.
+
+So as an aerial perspective we can say RTL + .lib -> synthesize to digital circuit.
+
+### What is .lib?
+
+.lib file is collection of logical modules, which includes basic logic gates such as NOT AND OR NAND NOR etc. .lib file also contains slow, medium,
+and fast versions of different modules. Below, lies an explanation why so.
+
+### Setup time
+
+Setup time described as the amount of time before the clock edge that the data must be stable. It is denoted by Tsetup. Using an analogy, from flip flop A to combinatorial logic block to flip flop B, the clock time must be less than the propagation delay + the time to propagate through the combinatorial circuit + the setup time. The data must be stable for a set amount of time before the clock arrives. Now here comes the utility of Fast cells, it make combinatorial time smaller, to satisfy setup requirements. Clock time indicates maximum clock frequency. A perticular circuit having smaller the clock time, the higher the speed, the better the performance.
+
+```
+Freq_clock = 1 / clock_time
+
+```
+
+### Hold time
+
+Hold time is the amount of time after the clock edge that the data must be held stable. It is denoted by Tholdtime. We use faster cells to meet up the requirement of setup times, and slower cells to meet up the requirement of hold times.
+
+### Deep Drive into the differance between Faster cell and Slower cell
+
+- The propagation delay is stated as the time required for the input to cause a change in the output across a logic cell.
+- Whenever we look at the faster cell and the slower cell in a digital logic circuit, we look at the load which is actually a capacitor. So the cell delay fully depends on charging rate of the capacitance.
+- The faster the capacitor charges / discharges, the higher the current and lower the delay.
+- In order to charge/discharge the capacitor fast, we essentially need those transistors which are capable of sourcing more current i.e, it is essentially to be a wide transistor as the current carrying of a transistor is directly proportional to its width.
+- So **wider the transistors, lower will be the delay with the cost of more area and more power**.
+- **Narrow Transistors will take less area and less power in the cost of more delay**.
+
+### How to select the cell?
+
+- We need to direct the synthesiser to choose the cell flavour that is best for implementing logic circuits. 
+- Increased usage of quicker cells leads to a poor circuit in terms of area and power, as well as the possibility of hold time violations. 
+- More slower cells may result in a sluggish circuit that fails to fulfil performance requirements. 
+- As a result, we must provide guidance to the synthesiser in order for it to select the proper collection of cells, which we refer to as **CONSTRAINTS**. 
+
+### Running Yosys
+
+**Step 1**: Invoke yosys
+
+```
+yosys
+```
+### Fig: Invoking yosys
+
+![image](https://user-images.githubusercontent.com/61839839/123636070-0cd63600-d83a-11eb-9b65-f0980c57beb3.png)
+
+
+**Step 2**: Read the library
+
+```
+                    read_liberty -lib ../my_lib/lib/SKY130_fd_sc_hd_-tt_025C_1v80.lib
+                    
+                    Where,
+                    
+                    read_liberty : Read cells from liberty file as modules into current design.
+                    
+                    -lib : Only create empty blackbox modules.
+                    
+                    SKY130_fd_sc_hd_-tt_025C_1v80.lib : Name of the library.
+
+```
+### Fig: Reading the library
+
+![image](https://user-images.githubusercontent.com/61839839/123638147-72c3bd00-d83c-11eb-94d1-d3a80d6a6260.png)
+
+**Step 3**: Reading the design
+
+```
+                    read_verilog good_mux.v
+                    
+                    Where,
+                    
+                    read_verilog : Load modules from a Verilog file to the current design.
+                    
+                    good_mux.v : verilog filename
+```
+
+### Fig: Reading the design
+
+![image](https://user-images.githubusercontent.com/61839839/123638308-a999d300-d83c-11eb-985c-600ad0793590.png)
+
+**Step 4**: Synthesize the design
+
+```                    synth -top good_mux
+                    
+                       Where,
+                    
+                       synth : This command runs the default synthesis script.
+                    
+                       -top :  use the specified module as top module
+```
+### Fig: Pinpoint top-level module
+
+![image](https://user-images.githubusercontent.com/61839839/123638670-0f865a80-d83d-11eb-9101-66f80aeb0fe1.png)
+
+### Fig: Synth infers the following below
+
+![image](https://user-images.githubusercontent.com/61839839/123638742-22992a80-d83d-11eb-9ba3-e3b3eabdd34f.png)
+
+**Step 5**: Generate the netlist
+
+```
+                    abc -liberty ../my_lib/lib/SKY130_fd_sc_hd_-tt_025C_1v80.lib
+                    
+                    Where,
+                    
+                    abc : Does technology mapping of yosys's internal gate library to a target architecture.
+```
+### Fig: Generating the netlist
+
+![image](https://user-images.githubusercontent.com/61839839/123638939-583e1380-d83d-11eb-8e8d-b6af6067998c.png)
+
+### Fig: Doing abc infers
+
+![image](https://user-images.githubusercontent.com/61839839/123639017-6a1fb680-d83d-11eb-9d41-eb5a08dbac72.png)
+
+**Step 6**: Look for the graphical version of logic which has been realized
+
+```
+                    show
+                    
+                    Where,
+                    
+                    show : Generates schematics using graphviz.
+```
+### Fig: Schematic representation of the realized logic
+
+![image](https://user-images.githubusercontent.com/61839839/123639221-989d9180-d83d-11eb-8872-d7438f6298b4.png)
 
 
 
 
+## 4. Day 2 :
+
+## Timing libs, Hierarchical vs Flat Synthesis & Efficient FlipFlop coding styles
+
+## INTRODUCTION TO TIMING .lib
+
+**Library Name : SKY130_fd_sc_hd__tt_025C_1v80.lib is a High Density Standard Cell Library**
+
+```
+     SKY130_fd_sc_hd__tt_025C_1v80.lib
+     
+     Where,
+     
+     SKY130 : Technology
+     
+     tt : Typical Process
+     
+     025C : Temperature
+     
+     1v80 : Voltage
+     
+     SKY130_fd_sc_hd : It is designed for High Density. It contains standard cells that are smaller, utilizing a 0.46 x 2.72um site, equivalent to 9 met1 tracks. This 
+                       library enables higher routed gated density, lower dynamic power consumption, and comparable timing and leakage power. As a trade-off it has lower                                drive strength and does not support any drop in replacement medium or high speed library.
+                       sky130_fd_sc_hd includes clock-gating cells to reduce active power during non-sleep modes.
+
+                       - Latches and flip-flops have scan equivalents to enable scan chain creation.
+
+                       - Multi-voltage domain library cells are provided.
+
+                       - Routed Gate Density is 160 kGates/mm^2 or better.
+
+                       - leakage @ttleak_1.80v_25C (no body bias) is 0.86 nA / kGate
+
+                       - sky130_fd_sc_XX__buf_16 max cap (ss_1.60v_-40C, in/out tran=1.5ns) is 0.746 pF
+
+                       - Body Bias-able
+```
+
+.lib file contains the following informations :
+
+- A detailed timing information of Standard cells, Soft macros, Hard macros.
+
+- Information about the functionality of Standard cells, Soft macros.
+
+- Design rules like max capacitance, max fanout, and max transition.
+
+- Timing information of the cells like Setup, Hold time, abd cell delays.
+
+- Cell delay as a function of input transition and output load.
+
+- It provides information about leakage power for each logical combination of the cell - number of combinations is two ^ the amount of inputs
+
+- It Contains information about power port information, individual pin capacitance, power of each pin / differentiate between power pins and data pins
+
+- Lookup table is used to calculate the cell delay.
+
+- Cell delays are generally obtained by using CCS models, linear delay models,and nonlinear delay models.
+
+- It also contain some PVT condition and derating factor which will provide from foundry only.
+- 
+
+The timing and power parameters of Standard cells and Macros are basically stored in the logical library file (.lib), which is in ASCII format.
+These parameters were determined by modelling the cell under a range of conditions. 
+
+### Source of Variation
+
+1. PROCESS VARIATION (P) : Deviations in the semiconductor fabrication process are accounted for by this variation. 
+
+2. SUPPLY VOLTAGE (V) : As we get to lower nodes, the supply voltage for a chip will decrease. Assume the chip is powered at 1.2 volts. As a result, there's a risk that the voltage will fluctuate at different times. It may be set to 1.5 or 0.8 volts. We consider voltage fluctuation to deal with this issue. 
+
+3. OPERATING TEMPERATURE (T) : Semiconductors are extremely temperature sensitive. Because it must function efficiently in all locations, the various that occur must be factored. 
+
+
+## Labs associated with Introduction to timing.lib
+
+In the sirst step we have to open the libreary file
+
+```terminal
+  Command used : vim ../my_lib/lib/SKY130_fd_sc_hd__tt_025C_1v80.lib
+```
+## Fig: Shows the Technology, Delaymodel i.e., Look up table, Unit information
+
+![image](https://user-images.githubusercontent.com/61839839/123650887-a3115880-d848-11eb-91b0-01e9f47da59b.png)
+
+## Different flavours of a cell that exist in the library
+
+![image](https://user-images.githubusercontent.com/61839839/123651082-cd631600-d848-11eb-8985-6f6e5a9fa9ca.png)
+
+![image](https://user-images.githubusercontent.com/61839839/123651115-d6ec7e00-d848-11eb-85a2-bf2493428096.png)
+
+For an example we had considered the **and2_0** and **and2_1**. It is clear from description that and2_0 is manufactured with smaller transistor than and2_1. So we can observe that the delay will be greater in case of and2_0 rather than and2_1. But and2_0 consumes larger area and also the leakage power is also high for and2_0. If we observe carefully we can have detailed information about the leakage power for dirrerent input combination of of a pericular cell. For example in and2_0 there are two input A and B, so we can get detailed information of peakage power for different input combinations like **!A&B**, **!A&!B**, **A&!B**, and **A&B**.
 
 
 
 
-
-
-## 3. Day 2 :
 
 
 
@@ -1165,40 +1453,366 @@ So according to our expectation we can clearly observe the latch when i0 and i2 
 
 ### Lab: Incomplete Case
 
+The following code snippet, given bellow is taken from the labs which describes an incomplete case situation pefectly.
+
+```verilog
+module incomp_case (input i0 , input i1 , input i2 , input [1:0] sel, output reg y);
+always @ (*)
+begin
+	case(sel)
+		2'b00 : y = i0;
+		2'b01 : y = i1;
+	endcase
+end
+endmodule
+```
+As we have already know that just like an if statement, a case statement also translates into a mux. Here we have inputs i0, i1, i2 there is a 2 bit select line and output  y. When select is 00 we get i0 if select is 01 then we gen i1. Now when select is 10 and 11 there is nothng specified and also default is not present, so for this two cases we well see a latching scenerio. 
+
+![image](https://user-images.githubusercontent.com/61839839/123589995-acc69c00-d807-11eb-939b-61fe781de658.png)
+
+| sel[1] | sel[0] |    y  |
+| ------ | ------ | ----- |
+|   0    |    0   |   I0  |
+|   0    |    1   |   I1  |
+|   1    |    0   | Latch |
+|   1    |    1   | Latch |
+
+Now we are looking for the functional simulation part to see the behaviour of our design.
+
+```terminal
+iverilog incomp_case.v tb_incomp_case.v
+./a.out
+gtkwave tb_incomp_case.vcd
+```
+![image](https://user-images.githubusercontent.com/61839839/123590264-0c24ac00-d808-11eb-9015-0e9a7777a649.png)
+
+S0 clearly we we have expected, when select is 0 the output follows i0, when select is 1 its following i1. But when select is 10 and 11 as there is nothng specified and also default is not present it is getting confused and latchinfg the previous value of y.
+
+Let see what happens we we synthesze the design
+
+```teminal
+ yosys> read_liberty -lib ../my_lib/lib/sky130_fd_sc_hd__tt_025C_1v80.lib
+ yosys> read_verilog incomp_case.v
+ yosys> synth -top incomp_case
+ yosys> abc -liberty ../my_lib/lib/sky130_fd_sc_hd__tt_025C_1v80.lib
+ yosys> show
+```
+![image](https://user-images.githubusercontent.com/61839839/123590798-c4eaeb00-d808-11eb-8123-5017fdc3f586.png)
+
+Here we can observe that there is a muxing logic followed by an latch at the end. This is what we have expected and what we are seeing. This is completely in allignment with our understanding.
 
 
+### Complete Case:
+
+Here we see the same implementation using a default case. So as a result latch disappears and it becomes an proper combinational logic.
+
+```verilog
+module comp_case (input i0 , input i1 , input i2 , input [1:0] sel, output reg y);
+always @ (*)
+begin
+	case(sel)
+		2'b00 : y = i0;
+		2'b01 : y = i1;
+		default : y = i2;
+	endcase
+end
+endmodule
+```
+![image](https://user-images.githubusercontent.com/61839839/123592829-61ae8800-d80b-11eb-8b18-30b9b3f62955.png)
+
+Here every thing is quite similar with the previous example. The only differance is we have added a default statement 
+
+Now we are looking for the functional simulation part to see the behaviour of our design.
+
+```terminal
+iverilog comp_case.v tb_comp_case.v
+./a.out
+gtkwave tb_comp_case.vcd
+```
+
+![image](https://user-images.githubusercontent.com/61839839/123592976-96bada80-d80b-11eb-9f8d-ac204a26e201.png)
+
+See here we are seeing when select is 10 or 11 the output is exaclty following i2 there is no latching action. Otherwise when select is 00 and 01 output follows i0 and i1 respectively.
+
+Let see what happens we we synthesze the design
+
+```teminal
+ yosys> read_liberty -lib ../my_lib/lib/sky130_fd_sc_hd__tt_025C_1v80.lib
+ yosys> read_verilog comp_case.v
+ yosys> synth -top incomp_case
+ yosys> abc -liberty ../my_lib/lib/sky130_fd_sc_hd__tt_025C_1v80.lib
+ yosys> show
+```
+
+If you see there is no latch infered, all are purely combinational standard cells are involved in the design. This will effectivly simplified to a 4x1 Mux. This is completely in allignment with our understanding.
+
+![image](https://user-images.githubusercontent.com/61839839/123593651-658eda00-d80c-11eb-93cf-2d2df96d72c7.png)
+
+### Lab: Partial assignment case
+
+In the case of partial assignment, we will encounter a latch as well. The synthesizer doesn't know what to do, so it defaults to a latch. For this example we will consider the verilog design partial_case_assign.v
+
+```verilog
+module partial_case_assign (input i0 , input i1 , input i2 , input [1:0] sel, output reg y , output reg x);
+always @ (*)
+begin
+	case(sel)
+		2'b00 : begin
+			y = i0;
+			x = i2;
+			end
+		2'b01 : y = i1;
+		default : begin
+		           x = i1;
+			   y = i2;
+			  end
+	endcase
+end
+endmodule
+
+```
+![image](https://user-images.githubusercontent.com/61839839/123596044-45ace580-d80f-11eb-84fd-782a1db585ea.png)
+
+So let's analyse what happens in case of x. For sel 00 output will be i0, but for sel 01 nothing is specified. So for the case sel = 01 there will be latching.
+
+Let's synthesize and check
+
+```terminal
+ yosys> read_liberty -lib ../my_lib/lib/sky130_fd_sc_hd__tt_025C_1v80.lib
+ yosys> read_verilog partial_case_assign.v
+ yosys> synth -top partial_case_assign
+ yosys> abc -liberty ../my_lib/lib/sky130_fd_sc_hd__tt_025C_1v80.lib
+ yosys> show
+```
+![image](https://user-images.githubusercontent.com/61839839/123596259-8efd3500-d80f-11eb-814b-260b4fab8824.png)
+
+Here we can see in the path of y, there is no latch. But in the path of x there is latch. As we have expected.
+
+>Point to remember:
+	Some times we can have a missconception, If we write default statement we can avoid infering of latches. But this not completely correct, there are some caveats
+
+### Lab: Overlapping cases
+
+In case of case even though the condition matches the whole case will be evaluated as the statements are not mutually exclusive. So if there are overlapping condition in case there will be a problem. To demonstrate this concept we will consider a verilog design called bad_case.v
+
+```verilog 
+module bad_case (input i0 , input i1, input i2, input i3 , input [1:0] sel, output reg y);
+always @(*)
+begin
+	case(sel)
+		2'b00: y = i0;
+		2'b01: y = i1;
+		2'b10: y = i2;
+		2'b1?: y = i3;
+		//2'b11: y = i3;
+	endcase
+end
+
+endmodule
+```
+In this case we can observe if sel = 00, sel = 01, and sel = 10 y is assigned to i0, i1 and i2 respectively. But 2'b1?: y = i3 condition will be be exicute even sel = 10 or 11. The simulator get confused. In the overlaping case different simulator works different way, as it is not expected to be happen.
+
+Let's synthesize and check
+
+![image](https://user-images.githubusercontent.com/61839839/123598879-9ffb7580-d812-11eb-93cf-939df6a9c410.png)
+
+It is clear when sel is becoming 11, it is neither following i2 or i3 as the conditon, the tool becomes confused and latching to a value of 1. This is not a desired condition at all.
+
+Let's synthesize and check how the synthesizer handle this scenario
+
+```terminal
+ yosys> read_liberty -lib ../my_lib/lib/sky130_fd_sc_hd__tt_025C_1v80.lib
+ yosys> read_verilog bad_case.v
+ yosys> synth -top bad_case
+ yosys> abc -liberty ../my_lib/lib/sky130_fd_sc_hd__tt_025C_1v80.lib
+ yosys> show
+```
+
+Performing GLS to check how it behaves after the synthesis
+
+```terminal
+iverilog ../my_lib/verilog_model/primitives.v ../my_lib/verilog_model/sky_fd_sc_hd.v bad_case_net.v tb_bad_case.v
+./a.out
+gtkwave tb_bad_case.vcd
+
+```
+
+![image](https://user-images.githubusercontent.com/61839839/123599748-90c8f780-d813-11eb-9315-aa199c11430e.png)
+
+So here is no latching asction. After synthesis now the tool is not getting confused when sel = 00 , 01, 10, 11 y is getting i0, i1, i2 and i3. So overlapping is a bad way of coding. When ever we are coding we have to be cautious about all the legs of the case statement should be mutually exclusive.
 
 
+### For Loops
+
+There are maily two type of looping constructs, with having distinct functionalities.
+1. For loop
+
+```verilog
+ for loop
+```
+For evaluating expressions, the simple for loop is utilised. In is used every time inside the 'always' block. 
+For further illustration, below we have considered a mux that has been coded with a for loop:
+
+### Lab - Mux using a case statement
+
+```verilog
+module mux_generate (input i0 , input i1, input i2 , input i3 , input [1:0] sel  , output reg y);
+ wire [3:0] i_int;
+ assign i_int = {i3,i2,i1,i0};
+ integer k;
+  always @ (*)
+   begin
+    for(k = 0; k < 4; k=k+1) begin
+     if(k == sel)
+	  y = i_int[k];
+     end
+    end
+ endmodule
+
+```
+This is basically a 4:1 mux, having a 4 bit bus i, a 2 bit input Select, an integer namely k. For every time when ever a signal changes, if the integer held in k matches with the two bit input in select, after that whatever be the value of select is, the corresponding input is assigned to output.
+
+Now we will further run RTL Simulation to check the behaviour of this design
+
+```verilog
+iverilog mux_generate.v tb_mux_generate.v
+./a.out
+gtkwave tb_mux_generate.vcd
+```
+![image](https://user-images.githubusercontent.com/61839839/123604919-ee137780-d818-11eb-9b3b-cfdc6773f5a2.png)
+ 
+ When select is 00, 01, 10 and 11 the y is assigned to i0, i1 i2, and i3. So this 4x1 Mux is working properly.
+ 
+ > So very naturally their will be a few question like Why write it this way? and Why not we are using a case statement?
+ 
+ > The answer is very simple when we are using case statement for this design it scales very badly. For a 256 mux we need to type out 256 cases manully. Whereas,      with that for loop, we only need to change 1 number.
+ 
+ Let's synthesize and compair the GLS output with the RTL simulation
+ 
+ ```terminal
+ yosys> read_liberty -lib ../my_lib/lib/sky130_fd_sc_hd__tt_025C_1v80.lib
+yosys> read_verilog mux_generate.v
+yosys> synth -top mux_generate
+yosys> abc -liberty ../my_lib/lib/sky130_fd_sc_hd__tt_025C_1v80.lib
+yosys> show
+yosys> write_verilog -noattr mux_generate_net.v
+
+ ```
+![image](https://user-images.githubusercontent.com/61839839/123610080-e2767f80-d81d-11eb-9964-79bee7269ceb.png)
+
+Performing GLS
+
+```terminal
+ iverilog ../my_lib/verilog_model/primitives.v ../my_lib/verilog_model/sky_fd_sc_hd.v mux_generate_net.v tb_mux_generate.v
+ ./a.out
+ gtkwave tb_mux_generate.vcd
+```
+![image](https://user-images.githubusercontent.com/61839839/123612685-6467a800-d820-11eb-8eee-418f580c8011.png)
 
 
+### Lab - Demux using a case statement
+
+In a demultiplexe, there several outputs correspoding to a single input. Depending on the select, one of the outputs will follow input. To check it's functionality we have considered demux_generate.v
+
+```verilog
+module demux_generate (output o0 , output o1, output o2 , output o3, output o4, output o5, output o6 , output o7 , input [2:0] sel  , input i);
+reg [7:0]y_int;
+assign {o7,o6,o5,o4,o3,o2,o1,o0} = y_int;
+integer k;
+always @ (*)
+begin
+y_int = 8'b0;
+for(k = 0; k < 8; k++) begin
+	if(k == sel)
+		y_int[k] = i;
+end
+end
+endmodule
+```
+
+Now we will further run RTL Simulation to check the behaviour of this design
+
+![image](https://user-images.githubusercontent.com/61839839/123619543-e78bfc80-d826-11eb-9f4d-6859c5930d9b.png)
+
+We can clearly observe when select is 00,01,10,11 exactly o1, o2, o3 and o4 is following y, respectively. Whatever line is selected by sel that perticular line follows the input, remaining all are at zero. 
+
+Let's synthesize and check how the synthesizer handle this scenario
+
+![image](https://user-images.githubusercontent.com/61839839/123619596-f5418200-d826-11eb-9c0c-517d922bc980.png)
 
 
+2. Generate For loop
+
+```verilog
+ generate   
+   for loop 
+```
+The for loop mentioned above is used to instantiate hardware. In is used every time outside the always block, and should not/cannot be used inside an always block.
+For further illustration, below we have considered adder circuit that has been coded with a for generate:
+
+### Lab: Ripple Carry Adder
+
+We utilise an RCA when we need to add two numbers. In order to process n bit numbers, an RCA needs n full adders. This is a chain of full adders, where carry is propagated through 1st full adder to the n th full adder. We would have to manually create and link x instances if we used the case statement, which would be inefficient, so we use For Generate loops instead. We can replicate as many times as needed by instantiating one full adder. For this lab we have considered rca.v module.
+
+```verilog
+module rca (input [7:0] num1 , input [7:0] num2 , output [8:0] sum);
+wire [7:0] int_sum;
+wire [7:0]int_co;
+
+genvar i;
+generate
+	for (i = 1 ; i < 8; i=i+1) begin
+		fa u_fa_1 (.a(num1[i]),.b(num2[i]),.c(int_co[i-1]),.co(int_co[i]),.sum(int_sum[i]));
+	end
+
+endgenerate
+fa u_fa_0 (.a(num1[0]),.b(num2[0]),.c(1'b0),.co(int_co[0]),.sum(int_sum[0]));
 
 
+assign sum[7:0] = int_sum;
+assign sum[8] = int_co[7];
+endmodule
+```
 
+This is an example of an 8-bit RCA. The way the index is coded in the for block within the generate enclosure allows the instances to link to one other.
+It's a more refined look. When we try to simulate the RCA with its test bench, iVerilog gives error, since the complete adder instantiation is in a separate file, so we have to call it as well, just like the primitives. 
 
+```verilog
+module fa (input a , input b , input c, output co , output sum);
+	assign {co,sum}  = a + b + c ;
+endmodule
+```
+Now we will further run RTL Simulation to check the behaviour of this design
 
+![image](https://user-images.githubusercontent.com/61839839/123622954-8534fb00-d82a-11eb-8884-94789a154804.png)
 
+As we can observe the addition is perfectly done.
 
+Let's synthesize and check how the synthesizer handle this scenario
 
+![image](https://user-images.githubusercontent.com/61839839/123623114-b8778a00-d82a-11eb-81cc-420cca36aece.png)
 
+Performing GLS and comairing with RTL simulation
 
+```terminal
+iverilog fa.v rca.v
+./a.out
+gtkwave tb_rca.vcd
+```
+![image](https://user-images.githubusercontent.com/61839839/123623327-ea88ec00-d82a-11eb-80b1-5f4ddf705743.png)
 
-
-
-
-
-
-
-
-
-
-
-
-
+As we can see the GLS and the RTL simulation perfectly matched with each other.
 
 
 ## ACKNOWLEDGEMENT
-## REFERENCES
-  
+I do want to thank Mr. Kunal Ghosh and Mr. Shon Taware for clearing all my questions and helping me comprehend the ideas. I wish to express my gratitude to the entire team for providing us with such an informative session. I also want to thank Ms. AnaghaGhosh, Mr. Tapan Das, and Mr. Mukesh for their help. 
 
+# Referances
+I have also used those materials as referances for understanding those concepts provided in the workshop
+
+1. https://www.vlsisystemdesign.com/?v=a98eef2a3105
+2. https://vsdiat.com/
+3. http://smdpc2sd.gov.in/downloads/IEP/IEP%208/24-02-18%20Rejender%20pratap.pdf
+4. http://www.ecs.umass.edu/ece/tessier/courses/221/lecture/timing-notes.pdf
+5. http://home.iitj.ac.in/~sptiwari/DLD/Lecture31_32_DLD.pdf
+6. http://www.clifford.at/yosys/documentation.html
