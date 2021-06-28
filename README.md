@@ -84,7 +84,7 @@ Based on the **GTK library**, [GTK]9http://gtkwave.sourceforge.net/) is a VCD wa
 
 
 
-## 2. Day 1 
+## 2. Day 1 :
 ## Introduction to Verilog RTL design and Synthesis :
 ### Register Transfer Level (RTL)
 The Register Transfer Level is an abstract description of a digital circuit, consisting of two elements: Sequential circuits (flip-Flops) and Combinational circuits (Logic Gates).
