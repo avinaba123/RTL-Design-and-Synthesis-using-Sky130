@@ -16,7 +16,7 @@ this might not be the ideal place to start.  In this workshop I was offered the 
 ## ROADMAP OF THE WORKSHOP
 
 1. Some glimps about YOSYS OPEN SYNTHESIS SUITE, SKY130 TECHNOLOGY, iVerilog SIMULATOR and GTKwave
-2. Day 1
+2. [Day 1](##day-1)
     - Introduction to Verilog RTL design and Synthesis
       - Introduction to the iverilog open-source simulator and the iverilog design testbench
       - Using iverilog and gtkwave in the lab 
