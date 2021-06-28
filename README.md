@@ -15,9 +15,8 @@ this might not be the ideal place to start.  In this workshop I was offered the 
 
 ## ROADMAP OF THE WORKSHOP
 
-1. ASIC Design Flow / RTL TO GDS Flow
-2. Some glimps about YOSYS OPEN SYNTHESIS SUITE, SKY130 TECHNOLOGY, iVerilog SIMULATOR and GTKwave
-3. Day 1
+1. Some glimps about YOSYS OPEN SYNTHESIS SUITE, SKY130 TECHNOLOGY, iVerilog SIMULATOR and GTKwave
+2. Day 1
     - Introduction to Verilog RTL design and Synthesis
       - Introduction to the iverilog open-source simulator and the iverilog design testbench
       - Using iverilog and gtkwave in the lab 
@@ -25,12 +24,33 @@ this might not be the ideal place to start.  In this workshop I was offered the 
       - Introduction to YOSYS OPEN SYNTHESIS SUITE
       - Introduction to Logic Synthesis 
       - Labs using Yosys and SKY130 PDKs
-4. Day 2
-5. Day 3
-6. Day 4
-7. Day 5
+3. Day 2
+4. Day 3
+5. Day 4
+6. Day 5
 
-## 3. Day 1 :
+
+## 1. Some glimps about YOSYS OPEN SYNTHESIS SUITE, SKY130 TECHNOLOGY, iVerilog SIMULATOR and GTKwave
+
+### YOSYS OPEN SYNTHESIS SUITE
+
+The synthesiser tool [Yosys](http://www.clifford.at/yosys/) is used to convert RTL to netlist. It's open-source software with an **ISC licence**. Any Synthesizable **Verilog - 2005 design** is processed. Synthesis scripts are used to regulate it. 
+
+### SKY130 TECHNOLOGY
+
+**Cypress Semiconductor** created the [SKY130 hybrid technology](https://skywater-pdk.readthedocs.io/en/latest/), which is 180nm-130nm. The **SKY130 foundry technology** is currently accessible through the SKYWater technology Foundry. The **SkyWater Open Source PDK** is the result of a partnership between **Google** and **SkyWater Technology Foundry** to create an open source process design kit. 
+
+### iVerilog SIMULATOR
+
+**Icarus Verilog**, often known as [iVerilog](http://iverilog.icarus.com/), is a free and open source simulator for Linux, Windows, and Mac OS X that is licenced under the GNU General Public License. The implementation of the verilog hardware description language is known as **Iverilog**. 
+
+### GTKWave
+
+Based on the **GTK library**, [GTK]9http://gtkwave.sourceforge.net/) is a VCD waveform viewer. With regard to **iVerilog**, it is used to see the simulated output of the verilog code and supports VCD and LXT formats for signal dumps. 
+
+
+
+## 2. Day 1 :
 ## Introduction to Verilog RTL design and Synthesis :
 ### Register Transfer Level (RTL)
 The Register Transfer Level is an abstract description of a digital circuit, consisting of two elements: Sequential circuits (flip-Flops) and Combinational circuits (Logic Gates).
@@ -443,7 +463,7 @@ yosys
 
 
 
-## 4. Day 2 :
+## 3. Day 2 :
 
 ## Timing libs, Hierarchical vs Flat Synthesis & Efficient FlipFlop coding styles
 
@@ -535,6 +555,318 @@ In the sirst step we have to open the libreary file
 
 For an example we had considered the **and2_0** and **and2_1**. It is clear from description that and2_0 is manufactured with smaller transistor than and2_1. So we can observe that the delay will be greater in case of and2_0 rather than and2_1. But and2_0 consumes larger area and also the leakage power is also high for and2_0. If we observe carefully we can have detailed information about the leakage power for dirrerent input combination of of a pericular cell. For example in and2_0 there are two input A and B, so we can get detailed information of peakage power for different input combinations like **!A&B**, **!A&!B**, **A&!B**, and **A&B**.
 
+## Hierarchical Synthesis vs Flat Synthesis
+
+1. Hierarchical Synthesis
+
+To illustrate about Hierarchical Synthesis we have considered multiple_modules.v as an example. It is a top level module that comprises of instantiations of lower level modules (one is of AND gate and the other one is OR), which individually implement pieces of functionality. Those individual modules are then tied together to provide a larger piece of funtionality.
+
+```verilog
+module sub_module2 (input a, input b, output y);
+	assign y = a | b;
+endmodule
+
+module sub_module1 (input a, input b, output y);
+	assign y = a&b;
+endmodule
+
+
+module multiple_modules (input a, input b, input c , output y);
+	wire net1;
+	sub_module1 u1(.a(a),.b(b),.y(net1));  //net1 = a&b
+	sub_module2 u2(.a(net1),.b(c),.y(y));  //y = net1|c ,ie y = a&b + c;
+endmodule
+```
+
+![image](https://user-images.githubusercontent.com/61839839/123655849-02716780-d84d-11eb-91fc-d12c005b292d.png)
+
+Running the following commands for synthesis, we had achived with the following outputs
+
+```terminal
+yosys> read_liberty -lib ../my_lib/lib/sky130_fd_sc_hd__tt_025C_1v80.lib
+yosys> read_verilog multiple_modules.v
+yosys> synth -top mutiple_modules
+yosys> abc -lib ../my_lib/lib/sky130_fd_sc_hd__tt_025C_1v80.lib
+yosys> show multiple_modules
+yosys> write_verilog -noattr multiple_modules_hier.v
+yosys> !gvim multiple_modules_hier.v
+```
+
+![image](https://user-images.githubusercontent.com/61839839/123675853-d06a0080-d860-11eb-8274-cd39bdc69d35.png)
+
+As we can see in the  output doesn't show the AND and the OR gates, it shows them instead as individual modules because they are instances of the submodules. Thus, hierarchies are preserved. Each module and sub module is separate. Hierarchical design abstracts modules.
+
+```verilog
+module multiple_modules(a, b, c, y);
+  input a;
+  input b;
+  input c;
+  wire net1;
+  output y;
+  sub_module1 u1 (
+    .a(a),
+    .b(b),
+    .y(net1)
+  );
+  sub_module2 u2 (
+    .a(net1),
+    .b(c),
+    .y(y)
+  );
+endmodule
+
+module sub_module1(a, b, y);
+  wire _0_;
+  wire _1_;
+  wire _2_;
+  input a;
+  input b;
+  output y;
+  sky130_fd_sc_hd__and2_2 _3_ (
+    .A(_0_),
+    .B(_1_),
+    .X(_2_)
+  );
+  assign _0_ = b;
+  assign _1_ = a;
+  assign y = _2_;
+endmodule
+
+module sub_module2(a, b, y);
+  wire _0_;
+  wire _1_;
+  wire _2_;
+  wire _3_;
+  wire _4_;
+  input a;
+  input b;
+  output y;
+  sky130_fd_sc_hd__clkinv_1 _5_ (
+    .A(_0_),
+    .Y(_3_)
+  );
+  sky130_fd_sc_hd__clkinv_1 _6_ (
+    .A(_1_),
+    .Y(_4_)
+  );
+  sky130_fd_sc_hd__nand2_1 _7_ (
+    .A(_3_),
+    .B(_4_),
+    .Y(_2_)
+  );
+  assign _0_ = b;
+  assign _1_ = a;
+  assign y = _2_;
+endmodule
+```
+
+As we can observe in the verilog output, the OR gate is implemented using a NAND gate and two inverters. This is related to the stacked PMOS concept, which results in poor mobility when implemented in this manner. We observe PMOS stacking when employing a NOR gate and two inverters, therefore that technique is avoided.
+
+
+2. Flat Synthesis
+
+By running the commands after !gvim multiple_modules_hier.v, we obtain a flat synthesis version of the design. the netlist is given bellow
+
+```verilog
+module multiple_modules(a, b, c, y);
+  wire _00_;
+  wire _01_;
+  wire _02_;
+  wire _03_;
+  wire _04_;
+  wire _05_;
+  wire _06_;
+  wire _07_;
+  input a;
+  input b;
+  input c;
+  wire net1;
+  wire \u1.a ;
+  wire \u1.b ;
+  wire \u1.y ;
+  wire \u2.a ;
+  wire \u2.b ;
+  wire \u2.y ;
+  output y;
+  sky130_fd_sc_hd__and2_2 _08_ (
+    .A(_00_),
+    .B(_01_),
+    .X(_02_)
+  );
+  sky130_fd_sc_hd__clkinv_1 _09_ (
+    .A(_03_),
+    .Y(_06_)
+  );
+  sky130_fd_sc_hd__clkinv_1 _10_ (
+    .A(_04_),
+    .Y(_07_)
+  );
+  sky130_fd_sc_hd__nand2_1 _11_ (
+    .A(_06_),
+    .B(_07_),
+    .Y(_05_)
+  );
+  assign \u1.a  = a;
+  assign \u1.b  = b;
+  assign net1 = \u1.y ;
+  assign _00_ = \u1.b ;
+  assign _01_ = \u1.a ;
+  assign \u1.y  = _02_;
+  assign \u2.a  = net1;
+  assign \u2.b  = c;
+  assign y = \u2.y ;
+  assign _03_ = \u2.b ;
+  assign _04_ = \u2.a ;
+  assign \u2.y  = _05_;
+endmodule
+
+```
+![image](https://user-images.githubusercontent.com/61839839/123658617-862c5380-d84f-11eb-96b9-021429c99156.png)
+
+Sometimes, rather than synthesising a whole design, we'll need to do it on a module level. This is usually needed when we:
+
+- need multiple instances of same module, synthesize once and replicate as many times as needed
+	- Remember to use required module name in synth -top command
+	
+- adopt the divide and conquer approach
+	- If it's a large design and the tool isn't up to the task
+	- To do a better job, we give smaller portions
+	- Then, at the top level, netlists of submodules are combined to achieve a superior design.
+
+
+
+## Flops
+
+### Why we need flops?
+
+Let's assume a combinational circuit, given a set of inputs, after a propagation delay, the changed output is going to reflect. There are very few cases, where because of the propagation delay, the output is going to glitch and it will be unstable.
+
+For example let's consider an 3 input combinational circuit, an 2 input AND gate followed by an 2 input OR gate, where the output of the AND gate is an inputnto the OR gate. The output i0 and y are the result of a&b and i0 | c.
+
+![image](https://user-images.githubusercontent.com/61839839/123662416-115b1880-d853-11eb-80d1-e182c3d6eb5e.png)
+
+Now lets assume a goes 0 to 1, b goes 0 to 1 and c goes 1 to 0 at the same time instance. Now When input C goes low, the OR gate sees it instantly. At that time, at the output y, because of the propagation delay of the AND gate, the value of i0 will not be updated and c will be ORed with the previous value of i0. We obtain time periods throughout the combinatorial circuit switching procedure where the output is not the intended value since the logical expression is still being evaluated, this is referred to as a glitch. The more combinational circuits there are, the more glitchy the outputs will be. When you daisy link combo circuits, the outputs never settle down. 
+
+Now to avid this type of glitches we introduce flops in between the combinational circuits kind of like buffers/storage elements to hold the values (Either logical 1 or logical 0). As the output of rhe flop changes only on the edges of the clock, it can provide stability as while the output of the combinational circuit glitches. The property of retaining the stable values for the next stages, helps us to design circuit to function correctly. So as a conclussion we need to init
+the flops else the circuit will have garbage outputs, hence the reset or set pins on the flops comes into the picture.
+ 
+- Set and Reset - they can be synchronous or asynchronous.
+
+- Flip-flops can be triggered at a positive or negative edge of the clock.
+
+- In the case of Async reset: this can reset irrespecctive of the edge of the clock (+/-)
+
+- In the case of Sync reset: flop resets at a predetermined edge (+/-)
+
+- In the sensitivity list for a async flop, we have the clock and the async set/reset triggers.
+
+- In the sensitivity list for a sync flop, we have the clock trigger only.
+
+The if statement is only evaluated when the async reset trigger in the sensitivity list is activated for the flop with both sync and async reset.
+At the edge of the clock, the if and else are assessed. 
+
+
+## Lab for Flip-Flop Simulation
+
+```verilog
+module dff_asyncres ( input clk ,  input async_reset , input d , output reg q );
+always @ (posedge clk , posedge async_reset)
+begin
+	if(async_reset)
+		q <= 1'b0;
+	else	
+		q <= d;
+end
+endmodule
+```
+
+![image](https://user-images.githubusercontent.com/61839839/123670070-70705b80-d85a-11eb-8c8f-9b9de2acec15.png)
+
+The example above shows a flip flop with an asynchronous reset. Closer examination of the waveform reveals that after the reset went low, d can occur at any time, while q only changes at the next clock edge. But when the reset goes high the q will be change instantaneously, it will not wait for the clock age. This is how asynchronous reset flop works. 
+
+Let see how the schematic representation of the realized logic is
+
+```terminal
+yosys> read_liberty -lib ../my_lib/lib/sky130_fd_sc_hd__tt_025C_1v80.lib
+yosys> read_verilog dff_asyncres.v
+yosys> synth -top dff_asyncres
+yosys> dfflibmap -liberty ../my_lib/lib/sky130_fd_sc_hd__tt_025C_1v80.lib
+yosys> abc -liberty ../my_lib/lib/sky130_fd_sc_hd__tt_025C_1v80.lib
+yosys> show
+```
+
+![image](https://user-images.githubusercontent.com/61839839/123671388-d8737180-d85b-11eb-9624-751089b5f72b.png)
+
+> Note: The reset is an active high in the flip flop implementation below. 
+> Yosys has added an inverter and converted it into an active low. 
+
+
+Now for the next example we will consider the dff_async_set.v module the study the asynchronous set behaviour.
+
+```verilog
+module dff_async_set ( input clk ,  input async_set , input d , output reg q );
+always @ (posedge clk , posedge async_set)
+begin
+	if(async_set)
+		q <= 1'b1;
+	else	
+		q <= d;
+end
+endmodule
+```
+
+![image](https://user-images.githubusercontent.com/61839839/123671801-4cae1500-d85c-11eb-9847-1885d69816ee.png)
+
+As we can see we main differance with asynchronous reset is the output is going to be high when set is high.  Closer examination of the waveform reveals that after the set went low, d can occur at any time, while q only changes at the next clock edge. But when the set goes high the q will be change instantaneously, it will not wait for the clock age. This is how asynchronous set flop works. 
+
+Now to study the synchronous behaviour we will consider the verilog module dff_syncres.v. 
+
+```verilog 
+module dff_syncres ( input clk , input async_reset , input sync_reset , input d , output reg q );
+always @ (posedge clk )
+begin
+	if (sync_reset)
+		q <= 1'b0;
+	else	
+		q <= d;
+end
+endmodule
+```
+![image](https://user-images.githubusercontent.com/61839839/123673108-b67aee80-d85d-11eb-8efa-f4744432eb82.png)
+
+The above is a simulation of a synchronous reset flop. Upon closer examination of the waveform, we can notice that when synchronus reset goes high, q waits for the next clock edge to go low. Reset and d signals are present, reset gets higher precedence because of how we've coded the flop.
+
+Let see how the schematic representation of the realized logic is
+
+```terminal
+yosys> read_liberty -lib ../my_lib/lib/sky130_fd_sc_hd__tt_025C_1v80.lib
+yosys> read_verilog dff_syncres.v
+yosys> synth -top dff_syncres
+yosys> dfflibmap -liberty ../my_lib/lib/sky130_fd_sc_hd__tt_025C_1v80.lib
+yosys> abc -liberty ../my_lib/lib/sky130_fd_sc_hd__tt_025C_1v80.lib
+yosys> show
+```
+
+![image](https://user-images.githubusercontent.com/61839839/123674023-c47d3f00-d85e-11eb-8d57-a7f68b691c76.png)
+
+Now to study both asynchronous and a synchronous reset present in a flop, we will consider the verilog module dff_asyncres_syncres.v
+
+```verilog
+module dff_asyncres_syncres ( input clk , input async_reset , input sync_reset , input d , output reg q );
+always @ (posedge clk , posedge async_reset)
+begin
+	if(async_reset)
+		q <= 1'b0;
+	else if (sync_reset)
+		q <= 1'b0;
+	else	
+		q <= d;
+end
+endmodule
+```
+![image](https://user-images.githubusercontent.com/61839839/123674960-d6131680-d85f-11eb-8b0f-52c6d91ef283.png)
+
+Upon closer inspection of the waveform, we notice that changes at the d pin are reflected at the q pin at clock edge. As long as async reset is high, q stays at one, when it goes low, q now depends on and follows next the clock edge as soon as set goes back to one, q locks at one irrespective of the clock.
 
 
 
@@ -543,10 +875,8 @@ For an example we had considered the **and2_0** and **and2_1**. It is clear from
 
 
 
-
-
-
-## 5. Day 3:
+## 4. Day 3:
+## Combinatorial and Sequential Optimizations
 
 In Digital logic we know there are two types of logic namely combinational and sequential. We need to optimise the logic since we want to obtain the best design in terms of area and power savings. There are a variety of basic and sophisticated optimization techniques (State Optimization, Cloaning Optimization, Retiming Optimization etc.) available, but we'll focus on constant propagation (which is a direct optimization technique) and boolean logic optimization here. 
 
@@ -961,7 +1291,7 @@ This is a toggling scenerio (where q is not of q) and the unused two bits are co
 
 
 
-## 6. Day 4:
+## 5. Day 4:
 
 ### Gate Level Simulation, Blocking vs Non-Blocking Assignments, Synthesis-Simulation Mismatch
 
@@ -1264,7 +1594,7 @@ The ans is very simple for RTL simulation it's looking at the past value of a an
 
 
 
-## 7. Day 5:
+## 6. Day 5:
 
 ### If Statement:
 
